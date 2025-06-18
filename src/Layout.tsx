@@ -376,7 +376,7 @@ const Layout = () => {
             { tab: "properties", to: "/properties" },
             { tab: "tenants", to: "/tenants" },
             { tab: "finances", to: "/payments" },
-            { tab: "maintenance", to: "/maintenance" },
+            { tab: "expenses", to: "/expenses" },
           ].map(({ tab, to }) => (
             <NavLink
               key={tab}
