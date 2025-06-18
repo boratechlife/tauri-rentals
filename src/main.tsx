@@ -6,8 +6,10 @@ import { Routes, Route } from "react-router-dom";
 import PropertyManagerDashboard from "./Dashboard";
 import PropertiesPage from "./Property";
 import Tenants from "./Tenants";
-import PaymentManagement from "./Payments";
+import "./App.css";
+
 import Layout from "./Layout";
+import PropertyManagementDashboard from "./Payments";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
@@ -17,7 +19,7 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
           <Route index element={<PropertyManagerDashboard />} />
           <Route path="properties" element={<PropertiesPage />} />
           <Route path="tenants" element={<Tenants />} />
-          <Route path="payments" element={<PaymentManagement />} />
+          <Route path="payments" element={<PropertyManagementDashboard />} />
         </Route>
 
         {/* <Route path="*" element={<NotFound />} /> */}

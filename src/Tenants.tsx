@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 
 interface Tenant {
   id: number;
   name: string;
   email: string;
   phone: string;
-  status: 'active' | 'inactive';
+  status: "active" | "inactive";
 }
 
 const Tenants: React.FC = () => {
@@ -20,23 +20,23 @@ const Tenants: React.FC = () => {
         const mockTenants: Tenant[] = [
           {
             id: 1,
-            name: 'John Doe',
-            email: 'john@example.com',
-            phone: '123-456-7890',
-            status: 'active',
+            name: "John Doe",
+            email: "john@example.com",
+            phone: "123-456-7890",
+            status: "active",
           },
           {
             id: 2,
-            name: 'Jane Smith',
-            email: 'jane@example.com',
-            phone: '098-765-4321',
-            status: 'active',
+            name: "Jane Smith",
+            email: "jane@example.com",
+            phone: "098-765-4321",
+            status: "active",
           },
         ];
         setTenants(mockTenants);
         setLoading(false);
       } catch (error) {
-        console.error('Error fetching tenants:', error);
+        console.error("Error fetching tenants:", error);
         setLoading(false);
       }
     };
@@ -45,8 +45,10 @@ const Tenants: React.FC = () => {
   }, []);
 
   return (
-    <div className="p-4">
-      <h1 className="text-2xl font-bold mb-4">Tenants Management</h1>
+    <div className="p-4 bg-red-200">
+      <h1 className="text-2xl font-bold mb-4 text-red-700">
+        Tenants Management
+      </h1>
 
       {loading ? (
         <p>Loading...</p>
@@ -71,9 +73,9 @@ const Tenants: React.FC = () => {
                   <td className="px-4 py-2 border">
                     <span
                       className={`px-2 py-1 rounded ${
-                        tenant.status === 'active'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-red-100 text-red-800'
+                        tenant.status === "active"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
                       }`}
                     >
                       {tenant.status}
