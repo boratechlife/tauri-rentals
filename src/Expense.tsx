@@ -47,49 +47,35 @@ const ExpensePage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function loadCategories() {
+    async function fetchData() {
+      setLoading(true); // Ensure loading is true at the start of fetch
+      setError(null); // Clear any previous errors
+
       try {
-        const data = await invoke('get_expense_categories');
-        setCategories(data);
+        // Use Promise.all to fetch all data concurrently
+        const [categoriesData, blocksData, expensesData] = await Promise.all([
+          invoke('get_expense_categories'),
+          invoke('get_building_blocks'),
+          invoke('get_all_expenses'), // Note: Type assertion '<Expense[]>' is usually handled by TypeScript, not JavaScript
+        ]);
+
+        // Once all promises resolve, update the respective states
+        setCategories(categoriesData);
+        setBlocks(blocksData);
+        setExpenses(expensesData);
       } catch (err) {
-        console.error('Failed to load expense categories:', err);
-        setError('Failed to load category options.');
+        // Consolidated error handling for any failed fetch
+        console.error('Failed to load dashboard data:', err);
+        setError('Failed to load essential dashboard data. Please try again.');
       } finally {
-        setLoading(false);
+        setLoading(false); // Set loading to false once all fetches are complete
       }
     }
-    loadCategories();
+
+    fetchData(); // Execute the consolidated fetch function
+
+    // The empty dependency array ensures this effect runs only once on component mount.
   }, []);
-
-  useEffect(() => {
-    async function loadBlocks() {
-      try {
-        const data = await invoke('get_building_blocks');
-        setBlocks(data);
-      } catch (err) {
-        console.error('Failed to load building blocks:', err);
-        setError('Failed to load building block options.');
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadBlocks();
-  }, []); // Runs once on component mount
-
-  useEffect(() => {
-    async function loadExpenses() {
-      try {
-        const data = await invoke<Expense[]>('get_all_expenses');
-        setExpenses(data);
-      } catch (err) {
-        console.error('Failed to load expenses:', err);
-        setError('Failed to load expenses data.');
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadExpenses();
-  }, []); // Empty dependency array: runs once on mount
 
   const categoryIcons = {
     Maintenance: Wrench,

@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from "react";
-import { Search, Plus, Eye, Edit, Trash2 } from "lucide-react";
+import React, { useState, useMemo, useEffect } from 'react';
+import { Search, Plus, Eye, Edit, Trash2 } from 'lucide-react';
+import { invoke } from '@tauri-apps/api/core';
 
 interface Payment {
   id: string;
@@ -9,9 +10,9 @@ interface Payment {
   amount: number;
   date: string;
   dueDate: string;
-  status: "Paid" | "Pending" | "Late" | "Overdue";
-  method: "Bank Transfer" | "Credit Card" | "Check" | "Cash";
-  category: "Rent" | "Utilities" | "Maintenance" | "Deposit";
+  status: 'Paid' | 'Pending' | 'Late' | 'Overdue';
+  method: 'Bank Transfer' | 'Credit Card' | 'Check' | 'Cash';
+  category: 'Rent' | 'Utilities' | 'Maintenance' | 'Deposit';
 }
 
 interface Tenant {
@@ -24,7 +25,7 @@ interface Tenant {
   leaseStart: string;
   leaseEnd: string;
   rentAmount: number;
-  status: "Active" | "Moving Out" | "Overdue";
+  status: 'Active' | 'Moving Out' | 'Overdue';
 }
 
 interface Property {
@@ -38,74 +39,28 @@ interface Property {
 }
 
 const PropertyManagementDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState("dashboard");
-  const [searchText, setSearchText] = useState("");
-  const [filterStatus, setFilterStatus] = useState("all");
-  const [dateRange, setDateRange] = useState("thisMonth");
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [payments, setPayments] = useState([]);
+  const [searchText, setSearchText] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [dateRange, setDateRange] = useState('thisMonth');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Sample data
-  const [payments] = useState<Payment[]>([
-    {
-      id: "1",
-      tenant: "John Smith",
-      unit: "A101",
-      property: "Sunset Apartments",
-      amount: 1500,
-      date: "2025-06-15",
-      dueDate: "2025-06-01",
-      status: "Paid",
-      method: "Bank Transfer",
-      category: "Rent",
-    },
-    {
-      id: "2",
-      tenant: "Sarah Johnson",
-      unit: "B205",
-      property: "Oak Ridge Complex",
-      amount: 1200,
-      date: "2025-06-10",
-      dueDate: "2025-06-01",
-      status: "Paid",
-      method: "Credit Card",
-      category: "Rent",
-    },
-    {
-      id: "3",
-      tenant: "Mike Davis",
-      unit: "C301",
-      property: "Sunset Apartments",
-      amount: 1800,
-      date: "",
-      dueDate: "2025-06-01",
-      status: "Overdue",
-      method: "",
-      category: "Rent",
-    },
-    {
-      id: "4",
-      tenant: "Emily Wilson",
-      unit: "A203",
-      property: "Green Valley",
-      amount: 150,
-      date: "",
-      dueDate: "2025-06-15",
-      status: "Pending",
-      method: "",
-      category: "Utilities",
-    },
-    {
-      id: "5",
-      tenant: "David Brown",
-      unit: "B102",
-      property: "Oak Ridge Complex",
-      amount: 1400,
-      date: "2025-06-12",
-      dueDate: "2025-06-01",
-      status: "Paid",
-      method: "Check",
-      category: "Rent",
-    },
-  ]);
+  useEffect(() => {
+    async function loadPayments() {
+      try {
+        const data = await invoke<Payment[]>('get_all_payments');
+        setPayments(data);
+      } catch (err) {
+        console.error('Failed to load payments:', err);
+        setError('Failed to load payments data.');
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadPayments();
+  }, []); // Runs once on component mount
 
   const filteredPayments = useMemo(() => {
     return payments.filter((payment) => {
@@ -114,7 +69,7 @@ const PropertyManagementDashboard: React.FC = () => {
         payment.unit.toLowerCase().includes(searchText.toLowerCase()) ||
         payment.property.toLowerCase().includes(searchText.toLowerCase());
       const matchesFilter =
-        filterStatus === "all" ||
+        filterStatus === 'all' ||
         payment.status.toLowerCase() === filterStatus.toLowerCase();
       return matchesSearch && matchesFilter;
     });
@@ -233,25 +188,25 @@ const PropertyManagementDashboard: React.FC = () => {
                         </div>
                       </td>
                       <td className="py-4 px-6 text-gray-900">
-                        {payment.dueDate}
+                        {payment.due_date}
                       </td>
                       <td className="py-4 px-6">
                         <span
                           className={`inline-flex px-3 py-1 rounded-full text-sm font-medium ${
-                            payment.status === "Paid"
-                              ? "bg-green-100 text-green-800"
-                              : payment.status === "Pending"
-                              ? "bg-yellow-100 text-yellow-800"
-                              : payment.status === "Late"
-                              ? "bg-orange-100 text-orange-800"
-                              : "bg-red-100 text-red-800"
+                            payment.status === 'Paid'
+                              ? 'bg-green-100 text-green-800'
+                              : payment.status === 'Pending'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : payment.status === 'Late'
+                              ? 'bg-orange-100 text-orange-800'
+                              : 'bg-red-100 text-red-800'
                           }`}
                         >
                           {payment.status}
                         </span>
                       </td>
                       <td className="py-4 px-6 text-gray-900">
-                        {payment.method || "-"}
+                        {payment.method || '-'}
                       </td>
                       <td className="py-4 px-6">
                         <div className="flex items-center gap-2">
