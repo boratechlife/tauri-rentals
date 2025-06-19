@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Home,
   Users,
@@ -12,10 +12,19 @@ import {
   Plus,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { invoke } from "@tauri-apps/api/core";
 
 const PropertyManagerDashboard = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const navigate = useNavigate(); // Initialize useNavigate hook
+
+  const [greeting, setGreeting] = useState("");
+
+  useEffect(() => {
+    invoke<string>("greet", { name: "Next.js" })
+      .then((result) => setGreeting(result))
+      .catch(console.error);
+  }, []);
 
   const statsCards = [
     {
@@ -461,6 +470,7 @@ const PropertyManagerDashboard = () => {
           <div style={styles.card}>
             <div style={styles.cardHeader}>
               <h2 style={styles.cardTitle}>Recent Activity</h2>
+              {greeting + "Available"}
               <a
                 href="#"
                 style={styles.linkButton}

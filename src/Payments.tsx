@@ -1,19 +1,5 @@
 import React, { useState, useMemo } from "react";
-import {
-  Search,
-  DollarSign,
-  Users,
-  Home,
-  Plus,
-  Download,
-  Eye,
-  Edit,
-  Trash2,
-  BarChart3,
-  Building2,
-  Clock,
-  Bell,
-} from "lucide-react";
+import { Search, Plus, Eye, Edit, Trash2 } from "lucide-react";
 
 interface Payment {
   id: string;
