@@ -17,6 +17,22 @@ import { invoke } from "@tauri-apps/api/core";
 const PropertyManagerDashboard = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const navigate = useNavigate(); // Initialize useNavigate hook
+  const [statsCards, setStatsCards] = useState([]);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    async function loadStats() {
+      try {
+        const data = await invoke("get_stats_cards");
+        setStatsCards(data);
+      } catch (err) {
+        console.error("Failed to load stats cards:", err);
+        setError("Failed to load dashboard data.");
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadStats();
+  }, []); // Empty dependency array means this runs once on mount
 
   const [greeting, setGreeting] = useState("");
 
@@ -25,37 +41,6 @@ const PropertyManagerDashboard = () => {
       .then((result) => setGreeting(result))
       .catch(console.error);
   }, []);
-
-  const statsCards = [
-    {
-      title: "Total Properties",
-      value: "24",
-      change: "+2 this month",
-      icon: Home,
-      color: "#3B82F6",
-    },
-    {
-      title: "Active Tenants",
-      value: "87",
-      change: "+5 this month",
-      icon: Users,
-      color: "#10B981",
-    },
-    {
-      title: "Monthly Revenue",
-      value: "$42,350",
-      change: "+8% from last month",
-      icon: DollarSign,
-      color: "#8B5CF6",
-    },
-    {
-      title: "Pending Issues",
-      value: "12",
-      change: "3 urgent",
-      icon: AlertCircle,
-      color: "#EF4444",
-    },
-  ];
 
   const recentActivities = [
     {
