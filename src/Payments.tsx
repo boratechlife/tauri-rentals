@@ -1,6 +1,8 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { Search, Plus, Eye, Edit, Trash2 } from 'lucide-react';
-import { invoke } from '@tauri-apps/api/core';
+import React, { useState, useMemo, useEffect } from "react";
+import { Search, Plus, Eye, Edit, Trash2 } from "lucide-react";
+import { invoke } from "@tauri-apps/api/core";
+
+import Database from "@tauri-apps/plugin-sql";
 
 interface Payment {
   id: string;
@@ -10,9 +12,9 @@ interface Payment {
   amount: number;
   date: string;
   dueDate: string;
-  status: 'Paid' | 'Pending' | 'Late' | 'Overdue';
-  method: 'Bank Transfer' | 'Credit Card' | 'Check' | 'Cash';
-  category: 'Rent' | 'Utilities' | 'Maintenance' | 'Deposit';
+  status: "Paid" | "Pending" | "Late" | "Overdue";
+  method: "Bank Transfer" | "Credit Card" | "Check" | "Cash";
+  category: "Rent" | "Utilities" | "Maintenance" | "Deposit";
 }
 
 interface Tenant {
@@ -25,7 +27,7 @@ interface Tenant {
   leaseStart: string;
   leaseEnd: string;
   rentAmount: number;
-  status: 'Active' | 'Moving Out' | 'Overdue';
+  status: "Active" | "Moving Out" | "Overdue";
 }
 
 interface Property {
@@ -39,28 +41,35 @@ interface Property {
 }
 
 const PropertyManagementDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState("dashboard");
   const [payments, setPayments] = useState([]);
-  const [searchText, setSearchText] = useState('');
-  const [filterStatus, setFilterStatus] = useState('all');
-  const [dateRange, setDateRange] = useState('thisMonth');
+  const [searchText, setSearchText] = useState("");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [dateRange, setDateRange] = useState("thisMonth");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function loadPayments() {
+    async function fetchPayments() {
       try {
-        const data = await invoke<Payment[]>('get_all_payments');
-        setPayments(data);
+        setLoading(true);
+        const db = await Database.load("sqlite:test.db");
+        // Assuming your payments table has these columns
+        const dbPayments = await db.select(
+          `SELECT id, tenant, unit, property, amount, date, due_date, status, method, category FROM payments`
+        );
+        setError("");
+        setPayments(dbPayments);
+        console.log("Payments fetched successfully:", dbPayments);
       } catch (err) {
-        console.error('Failed to load payments:', err);
-        setError('Failed to load payments data.');
+        console.error("Error fetching payments:", err);
+        setError("Failed to get payments - check console");
       } finally {
         setLoading(false);
       }
     }
-    loadPayments();
-  }, []); // Runs once on component mount
+    fetchPayments();
+  }, []);
 
   const filteredPayments = useMemo(() => {
     return payments.filter((payment) => {
@@ -69,7 +78,7 @@ const PropertyManagementDashboard: React.FC = () => {
         payment.unit.toLowerCase().includes(searchText.toLowerCase()) ||
         payment.property.toLowerCase().includes(searchText.toLowerCase());
       const matchesFilter =
-        filterStatus === 'all' ||
+        filterStatus === "all" ||
         payment.status.toLowerCase() === filterStatus.toLowerCase();
       return matchesSearch && matchesFilter;
     });
@@ -193,20 +202,20 @@ const PropertyManagementDashboard: React.FC = () => {
                       <td className="py-4 px-6">
                         <span
                           className={`inline-flex px-3 py-1 rounded-full text-sm font-medium ${
-                            payment.status === 'Paid'
-                              ? 'bg-green-100 text-green-800'
-                              : payment.status === 'Pending'
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : payment.status === 'Late'
-                              ? 'bg-orange-100 text-orange-800'
-                              : 'bg-red-100 text-red-800'
+                            payment.status === "Paid"
+                              ? "bg-green-100 text-green-800"
+                              : payment.status === "Pending"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : payment.status === "Late"
+                              ? "bg-orange-100 text-orange-800"
+                              : "bg-red-100 text-red-800"
                           }`}
                         >
                           {payment.status}
                         </span>
                       </td>
                       <td className="py-4 px-6 text-gray-900">
-                        {payment.method || '-'}
+                        {payment.method || "-"}
                       </td>
                       <td className="py-4 px-6">
                         <div className="flex items-center gap-2">

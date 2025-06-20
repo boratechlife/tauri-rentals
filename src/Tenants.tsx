@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Search, Plus, Edit } from 'lucide-react';
-import { invoke } from '@tauri-apps/api/core';
+import React, { useState, useEffect, useCallback } from "react";
+import { Search, Plus, Edit } from "lucide-react";
+import Database from "@tauri-apps/plugin-sql";
+import { invoke } from "@tauri-apps/api/core";
 
 // ---
 // Interfaces
@@ -10,7 +11,7 @@ interface Tenant {
   name: string;
   email: string;
   phone: string;
-  status: 'Active' | 'Moving Out' | 'Inactive'; // More specific status types
+  status: "Active" | "Moving Out" | "Inactive"; // More specific status types
   unit: string;
   property: string;
   rent_amount: number;
@@ -24,37 +25,65 @@ interface Tenant {
 const TenantsList: React.FC = () => {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [searchText, setSearchText] = useState<string>('');
+  const [searchText, setSearchText] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
 
-  // Simulate API call to fetch tenants
-  const fetchTenants = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  // // Simulate API call to fetch tenants
+  // const fetchTenants = useCallback(async () => {
+  //   setLoading(true);
+  //   setError(null);
 
-    try {
-      // In a real application, you'd replace this with an actual API call:
-      // const response = await fetch("/api/tenants");
-      // if (!response.ok) {
-      //   throw new Error(`HTTP error! status: ${response.status}`);
-      // }
-      // const data = await response.json();
-      // setTenants(data);
+  //   try {
+  //     // In a real application, you'd replace this with an actual API call:
+  //     // const response = await fetch("/api/tenants");
+  //     // if (!response.ok) {
+  //     //   throw new Error(`HTTP error! status: ${response.status}`);
+  //     // }
+  //     // const data = await response.json();
+  //     // setTenants(data);
 
-      const data = await invoke<Tenant[]>('get_mock_tenants');
+  //     const data = await invoke<Tenant[]>('get_mock_tenants');
 
-      setTenants(data); // Use mock data if API fails
-    } catch (err) {
-      console.error('Failed to fetch tenants:', err);
-      setError('Failed to load tenants. Please try again later.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  //     setTenants(data); // Use mock data if API fails
+  //   } catch (err) {
+  //     console.error('Failed to fetch tenants:', err);
+  //     setError('Failed to load tenants. Please try again later.');
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // }, []);
+
+  // useEffect(() => {
+  //   fetchTenants();
+  // }, [fetchTenants]); // Dependency array ensures it runs once on mount
 
   useEffect(() => {
+    async function fetchTenants() {
+      try {
+        setLoading(true);
+        const db = await Database.load("sqlite:test.db");
+        // Adjust column names to match your 'tenants' and 'units' table schema
+        const dbTenants = await db.select(
+          `SELECT
+             t.id, t.name, t.email, t.phone, t.status,
+             u.unit_number as unit, p.name as property,
+             t.rent_amount, t.lease_start, t.lease_end
+           FROM tenants t
+           LEFT JOIN units u ON t.unit = u.id
+           LEFT JOIN properties p ON u.property = p.id;`
+        );
+        setError("");
+        setTenants(dbTenants);
+        console.log("Tenants fetched successfully:", dbTenants);
+      } catch (err) {
+        console.error("Error fetching tenants:", err);
+        setError("Failed to get tenants - check console");
+      } finally {
+        setLoading(false);
+      }
+    }
     fetchTenants();
-  }, [fetchTenants]); // Dependency array ensures it runs once on mount
+  }, []);
 
   // Filter tenants based on search text
   const filteredTenants = tenants.filter(
@@ -67,7 +96,7 @@ const TenantsList: React.FC = () => {
   );
 
   const handleAddTenant = () => {
-    console.log('Add Tenant functionality goes here!');
+    console.log("Add Tenant functionality goes here!");
     // Implement navigation to a new tenant form or open a modal
   };
 
@@ -91,12 +120,6 @@ const TenantsList: React.FC = () => {
     return (
       <div className="p-6 text-center text-red-600">
         <p>{error}</p>
-        <button
-          onClick={fetchTenants}
-          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          Retry
-        </button>
       </div>
     );
   }
@@ -139,7 +162,7 @@ const TenantsList: React.FC = () => {
         {filteredTenants.length > 0 ? (
           filteredTenants.map((tenant, index) => (
             <div
-              key={tenant.id + '' + index}
+              key={tenant.id + "" + index}
               className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col justify-between hover:shadow-md transition-shadow duration-200"
             >
               <div>
@@ -154,11 +177,11 @@ const TenantsList: React.FC = () => {
                   </div>
                   <span
                     className={`inline-flex px-3 py-1 rounded-full text-xs font-medium uppercase tracking-wide ${
-                      tenant.status === 'Active'
-                        ? 'bg-green-100 text-green-800'
-                        : tenant.status === 'Moving Out'
-                        ? 'bg-yellow-100 text-yellow-800'
-                        : 'bg-red-100 text-red-800'
+                      tenant.status === "Active"
+                        ? "bg-green-100 text-green-800"
+                        : tenant.status === "Moving Out"
+                        ? "bg-yellow-100 text-yellow-800"
+                        : "bg-red-100 text-red-800"
                     }`}
                   >
                     {tenant.status}
@@ -167,11 +190,11 @@ const TenantsList: React.FC = () => {
 
                 <div className="space-y-2 text-sm text-gray-700">
                   <p>
-                    <span className="font-medium text-gray-800">Email:</span>{' '}
+                    <span className="font-medium text-gray-800">Email:</span>{" "}
                     {tenant.email}
                   </p>
                   <p>
-                    <span className="font-medium text-gray-800">Phone:</span>{' '}
+                    <span className="font-medium text-gray-800">Phone:</span>{" "}
                     {tenant.phone}
                   </p>
                   <p>
@@ -179,7 +202,7 @@ const TenantsList: React.FC = () => {
                     {tenant.rent_amount.toLocaleString()}/month
                   </p>
                   <p>
-                    <span className="font-medium text-gray-800">Lease:</span>{' '}
+                    <span className="font-medium text-gray-800">Lease:</span>{" "}
                     {tenant.leaseStart} to {tenant.leaseEnd}
                   </p>
                 </div>

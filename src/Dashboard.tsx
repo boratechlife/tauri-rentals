@@ -44,7 +44,10 @@ const PropertyManagerDashboard = () => {
   useEffect(() => {
     async function loadTasks() {
       try {
-        const data = await invoke("get_upcoming_tasks");
+        const db = await Database.load("sqlite:test.db");
+        const data = await db.select(
+          `SELECT task_name as task, due_date as due, priority FROM tasks  ORDER BY due_date ASC LIMIT 5;`
+        );
         setUpcomingTasks(data);
       } catch (err) {
         console.error("Failed to load upcoming tasks:", err);
@@ -61,10 +64,14 @@ const PropertyManagerDashboard = () => {
     async function fetchData() {
       try {
         // Use Promise.all to fetch all data concurrently
+        const db = await Database.load("sqlite:test.db");
+
         // This is efficient because requests happen in parallel
         const [activitiesData, statsCardsData, greetingResult] =
           await Promise.all([
-            invoke("get_recent_activities"),
+            await db.select(
+              `SELECT activity_type as activityType, message, time FROM recent_activities ORDER BY time DESC LIMIT 10;`
+            ),
             invoke("get_stats_cards"),
             invoke<string>("greet", { name: "Next.js" }),
           ]);

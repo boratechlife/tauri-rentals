@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from "react";
+import Database from "@tauri-apps/plugin-sql";
 import {
   DollarSign,
   TrendingUp,
@@ -18,8 +19,8 @@ import {
   MoreHorizontal,
   Edit,
   Trash2,
-} from 'lucide-react';
-import { invoke } from '@tauri-apps/api/core';
+} from "lucide-react";
+import { invoke } from "@tauri-apps/api/core";
 
 interface Expense {
   id: string;
@@ -38,43 +39,72 @@ const ExpensePage: React.FC = () => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState([]);
   const [blocks, setBlocks] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All');
-  const [selectedBlock, setSelectedBlock] = useState('All');
-  const [dateRange, setDateRange] = useState('This Month');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [selectedBlock, setSelectedBlock] = useState("All");
+  const [dateRange, setDateRange] = useState("This Month");
   const [showAddExpense, setShowAddExpense] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // useEffect(() => {
+  //   async function fetchData() {
+  //     setLoading(true); // Ensure loading is true at the start of fetch
+  //     setError(null); // Clear any previous errors
+
+  //     try {
+  //       // Use Promise.all to fetch all data concurrently
+  //       const [categoriesData, blocksData, expensesData] = await Promise.all([
+  //         invoke('get_expense_categories'),
+  //         invoke('get_building_blocks'),
+  //         invoke('get_all_expenses'), // Note: Type assertion '<Expense[]>' is usually handled by TypeScript, not JavaScript
+  //       ]);
+
+  //       // Once all promises resolve, update the respective states
+  //       setCategories(categoriesData);
+  //       setBlocks(blocksData);
+  //       setExpenses(expensesData);
+  //     } catch (err) {
+  //       // Consolidated error handling for any failed fetch
+  //       console.error('Failed to load dashboard data:', err);
+  //       setError('Failed to load essential dashboard data. Please try again.');
+  //     } finally {
+  //       setLoading(false); // Set loading to false once all fetches are complete
+  //     }
+  //   }
+
+  //   fetchData(); // Execute the consolidated fetch function
+
+  //   // The empty dependency array ensures this effect runs only once on component mount.
+  // }, []);
+
   useEffect(() => {
-    async function fetchData() {
-      setLoading(true); // Ensure loading is true at the start of fetch
-      setError(null); // Clear any previous errors
-
+    async function fetchExpenses() {
       try {
-        // Use Promise.all to fetch all data concurrently
-        const [categoriesData, blocksData, expensesData] = await Promise.all([
-          invoke('get_expense_categories'),
-          invoke('get_building_blocks'),
-          invoke('get_all_expenses'), // Note: Type assertion '<Expense[]>' is usually handled by TypeScript, not JavaScript
-        ]);
-
-        // Once all promises resolve, update the respective states
-        setCategories(categoriesData);
-        setBlocks(blocksData);
-        setExpenses(expensesData);
+        setLoading(true);
+        const db = await Database.load("sqlite:test.db");
+        // Adjust column names to match your 'expenses', 'units', and 'properties' table schema
+        const dbExpenses = await db.select(
+          `SELECT
+             e.id, e.amount, e.category, e.description, e.date,
+             u.id as unitId, u.unit_number as unitName,
+             p.block as blockName,
+             e.payment_method as paymentMethod, e.vendor
+           FROM expenses e
+           LEFT JOIN units u ON e.unit_id = u.id
+           LEFT JOIN properties p ON u.property = p.id;`
+        );
+        setError("");
+        setExpenses(dbExpenses);
+        console.log("Expenses fetched successfully:", dbExpenses);
       } catch (err) {
-        // Consolidated error handling for any failed fetch
-        console.error('Failed to load dashboard data:', err);
-        setError('Failed to load essential dashboard data. Please try again.');
+        console.error("Error fetching expenses:", err);
+        setError("Failed to get expenses - check console");
       } finally {
-        setLoading(false); // Set loading to false once all fetches are complete
+        setLoading(false);
       }
     }
-
-    fetchData(); // Execute the consolidated fetch function
-
-    // The empty dependency array ensures this effect runs only once on component mount.
+    fetchExpenses();
   }, []);
 
   const categoryIcons = {
@@ -95,9 +125,9 @@ const ExpensePage: React.FC = () => {
         expense.vendor?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         expense.unitName.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory =
-        selectedCategory === 'All' || expense.category === selectedCategory;
+        selectedCategory === "All" || expense.category === selectedCategory;
       const matchesBlock =
-        selectedBlock === 'All' || expense.blockName === selectedBlock;
+        selectedBlock === "All" || expense.blockName === selectedBlock;
       return matchesSearch && matchesCategory && matchesBlock;
     });
   }, [expenses, searchTerm, selectedCategory, selectedBlock]);
@@ -202,8 +232,8 @@ const ExpensePage: React.FC = () => {
                   <span
                     className={`text-sm font-medium ${
                       summaryStats.percentageChange >= 0
-                        ? 'text-green-600'
-                        : 'text-red-600'
+                        ? "text-green-600"
+                        : "text-red-600"
                     }`}
                   >
                     {Math.abs(summaryStats.percentageChange).toFixed(1)}%

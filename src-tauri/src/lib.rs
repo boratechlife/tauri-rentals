@@ -690,9 +690,232 @@ pub fn run() {
             ",
             kind: MigrationKind::Up,
         },
-        // If you have more complex seeding or want to separate concerns,
-        // you could create a new migration with version: 2, description: "seed_initial_data",
-        // and only put INSERT statements there.
+// ---------------------------------------------------------------------
+        // Migration 2: Create payments table and seed data
+        // Title: Create Payments Table
+        // Table Name: payments
+        // Columns: id (TEXT PRIMARY KEY), tenant (TEXT NOT NULL), unit (TEXT NOT NULL), property (TEXT NOT NULL), amount (REAL NOT NULL), date (TEXT NOT NULL), due_date (TEXT NOT NULL), status (TEXT NOT NULL), method (TEXT NOT NULL), category (TEXT NOT NULL)
+        // ---------------------------------------------------------------------
+        Migration {
+            version: 2,
+            description: "create_payments_table_and_seed_data",
+            sql: "
+                CREATE TABLE IF NOT EXISTS payments (
+                    id TEXT PRIMARY KEY NOT NULL,
+                    tenant TEXT NOT NULL,
+                    unit TEXT NOT NULL,
+                    property TEXT NOT NULL,
+                    amount REAL NOT NULL,
+                    date TEXT NOT NULL,
+                    due_date TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    method TEXT NOT NULL,
+                    category TEXT NOT NULL
+                );
+                INSERT OR IGNORE INTO payments (id, tenant, unit, property, amount, date, due_date, status, method, category) VALUES ('1', 'John Smith', 'A101', 'Sunset Apartments', 1500.0, '2025-06-15', '2025-06-01', 'Paid', 'Bank Transfer', 'Rent');
+                INSERT OR IGNORE INTO payments (id, tenant, unit, property, amount, date, due_date, status, method, category) VALUES ('2', 'Sarah Johnson', 'B205', 'Oak Ridge Complex', 1200.0, '2025-06-10', '2025-06-01', 'Paid', 'Credit Card', 'Rent');
+                INSERT OR IGNORE INTO payments (id, tenant, unit, property, amount, date, due_date, status, method, category) VALUES ('3', 'Mike Davis', 'C301', 'Sunset Apartments', 1800.0, '', '2025-06-01', 'Overdue', '', 'Rent');
+                INSERT OR IGNORE INTO payments (id, tenant, unit, property, amount, date, due_date, status, method, category) VALUES ('4', 'Emily Wilson', 'A203', 'Green Valley', 150.0, '', '2025-06-15', 'Pending', '', 'Utilities');
+                INSERT OR IGNORE INTO payments (id, tenant, unit, property, amount, date, due_date, status, method, category) VALUES ('5', 'David Brown', 'B102', 'Oak Ridge Complex', 1400.0, '2025-06-12', '2025-06-01', 'Paid', 'Check', 'Rent');
+            ",
+            kind: MigrationKind::Up,
+        },
+
+        // ---------------------------------------------------------------------
+        // Migration 3: Create tenant_info table (if needed separately) and seed data
+        // Title: Create Tenant Info Table
+        // Table Name: tenant_info
+        // Columns: id (TEXT PRIMARY KEY), name (TEXT NOT NULL), lease_end_date (TEXT NOT NULL)
+        // ---------------------------------------------------------------------
+        Migration {
+            version: 3,
+            description: "create_tenant_info_table_and_seed_data",
+            sql: "
+                CREATE TABLE IF NOT EXISTS tenant_info (
+                    id TEXT PRIMARY KEY NOT NULL,
+                    name TEXT NOT NULL,
+                    lease_end_date TEXT NOT NULL
+                );
+                INSERT OR IGNORE INTO tenant_info (id, name, lease_end_date) VALUES ('T001', 'Alice Johnson', '2025-01-14');
+                INSERT OR IGNORE INTO tenant_info (id, name, lease_end_date) VALUES ('T004', 'David Lee', '2025-08-31');
+            ",
+            kind: MigrationKind::Up,
+        },
+         // ---------------------------------------------------------------------
+        // Migration 4: Create units table and seed data
+        // Title: Create Units Table
+        // Table Name: units
+        // Columns: id (TEXT PRIMARY KEY), unit_number (TEXT NOT NULL), property (TEXT NOT NULL), block (TEXT NOT NULL), floor (INTEGER NOT NULL), status (TEXT NOT NULL), unit_type (TEXT NOT NULL), bedrooms (INTEGER NOT NULL), bathrooms (INTEGER NOT NULL), square_footage (INTEGER NOT NULL), rent (INTEGER NOT NULL), security_deposit (INTEGER NOT NULL), amenities (TEXT NOT NULL), photos (TEXT NOT NULL), tenant_info_id (TEXT), notes (TEXT NOT NULL)
+        // Note: amenities and photos are stored as comma-separated strings (TEXT). tenant_info_id is nullable (TEXT).
+        // ---------------------------------------------------------------------
+        Migration {
+            version: 4,
+            description: "create_units_table_and_seed_data",
+            sql: "
+                CREATE TABLE IF NOT EXISTS units (
+                    id TEXT PRIMARY KEY NOT NULL,
+                    unit_number TEXT NOT NULL,
+                    property TEXT NOT NULL,
+                    block TEXT NOT NULL,
+                    floor INTEGER NOT NULL,
+                    status TEXT NOT NULL,
+                    unit_type TEXT NOT NULL,
+                    bedrooms INTEGER NOT NULL,
+                    bathrooms INTEGER NOT NULL,
+                    square_footage INTEGER NOT NULL,
+                    rent INTEGER NOT NULL,
+                    security_deposit INTEGER NOT NULL,
+                    amenities TEXT NOT NULL, -- Storing as comma-separated string
+                    photos TEXT NOT NULL, -- Storing as comma-separated string
+                    tenant_info_id TEXT, -- Can be NULL
+                    notes TEXT NOT NULL,
+                    FOREIGN KEY (tenant_info_id) REFERENCES tenant_info(id)
+                );
+                INSERT OR IGNORE INTO units (id, unit_number, property, block, floor, status, unit_type, bedrooms, bathrooms, square_footage, rent, security_deposit, amenities, photos, tenant_info_id, notes) VALUES ('U001', 'SL-201', 'Sunset Lofts', 'A', 2, 'Occupied', '2BR/2BA', 2, 2, 1200, 1800, 1800, 'Parking,AC,Pool Access', 'https://placehold.co/200x150/FF5733/FFFFFF?text=SL-201-1,https://placehold.co/200x150/33FF57/FFFFFF?text=SL-201-2', 'T001', 'Recently renovated kitchen.');
+                INSERT OR IGNORE INTO units (id, unit_number, property, block, floor, status, unit_type, bedrooms, bathrooms, square_footage, rent, security_deposit, amenities, photos, tenant_info_id, notes) VALUES ('U002', 'GVA-105', 'Green Valley Apartments', 'B', 1, 'Available', '1BR/1BA', 1, 1, 750, 1500, 1500, 'Gym,Balcony,Wifi', 'https://placehold.co/200x150/3366FF/FFFFFF?text=GVA-105-1', NULL, 'Great view of the park.');
+                INSERT OR IGNORE INTO units (id, unit_number, property, block, floor, status, unit_type, bedrooms, bathrooms, square_footage, rent, security_deposit, amenities, photos, tenant_info_id, notes) VALUES ('U003', 'CVC-08', 'City View Condos', 'Main', 5, 'Maintenance', '3BR/2BA', 3, 2, 1800, 2200, 2200, 'Washer/Dryer,Pet Friendly', 'https://placehold.co/200x150/33FF57/FFFFFF?text=CVC-08-1', NULL, 'Plumbing repair in progress. Estimated completion: 2024-07-01.');
+                INSERT OR IGNORE INTO units (id, unit_number, property, block, floor, status, unit_type, bedrooms, bathrooms, square_footage, rent, security_deposit, amenities, photos, tenant_info_id, notes) VALUES ('U004', 'SL-303', 'Sunset Lofts', 'A', 3, 'Occupied', '2BR/1BA', 2, 1, 1000, 1950, 1950, 'Parking,Balcony', 'https://placehold.co/200x150/FF33CC/FFFFFF?text=SL-303-1', 'T004', 'Quiet corner unit.');
+                INSERT OR IGNORE INTO units (id, unit_number, property, block, floor, status, unit_type, bedrooms, bathrooms, square_footage, rent, security_deposit, amenities, photos, tenant_info_id, notes) VALUES ('U005', 'GVA-210', 'Green Valley Apartments', 'C', 2, 'Reserved', '1BR/1BA', 1, 1, 800, 1450, 1450, 'AC,Gym', 'https://placehold.co/200x150/5733FF/FFFFFF?text=GVA-210-1', NULL, 'Awaiting final approval for new tenant.');
+            ",
+            kind: MigrationKind::Up,
+        },
+         // ---------------------------------------------------------------------
+        // Migration 5: Create tenants table and seed data
+        // Title: Create Tenants Table
+        // Table Name: tenants
+        // Columns: id (INTEGER PRIMARY KEY), name (TEXT NOT NULL), email (TEXT NOT NULL), phone (TEXT NOT NULL), status (TEXT NOT NULL), unit (TEXT NOT NULL), property (TEXT NOT NULL), rent_amount (INTEGER NOT NULL), lease_start (TEXT NOT NULL), lease_end (TEXT NOT NULL)
+        // ---------------------------------------------------------------------
+        Migration {
+            version: 5,
+            description: "create_tenants_table_and_seed_data",
+            sql: "
+                CREATE TABLE IF NOT EXISTS tenants (
+                    id INTEGER PRIMARY KEY NOT NULL,
+                    name TEXT NOT NULL,
+                    email TEXT NOT NULL,
+                    phone TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    unit TEXT NOT NULL,
+                    property TEXT NOT NULL,
+                    rent_amount INTEGER NOT NULL,
+                    lease_start TEXT NOT NULL,
+                    lease_end TEXT NOT NULL
+                );
+                INSERT OR IGNORE INTO tenants (id, name, email, phone, status, unit, property, rent_amount, lease_start, lease_end) VALUES (1, 'John Doe', 'john@example.com', '123-456-7890', 'Active', 'A101', 'Sunset Villas', 1200, '2023-01-01', '2023-12-31');
+                INSERT OR IGNORE INTO tenants (id, name, email, phone, status, unit, property, rent_amount, lease_start, lease_end) VALUES (2, 'Jane Smith', 'jane@example.com', '098-765-4321', 'Moving Out', 'B202', 'Green Meadows', 1500, '2022-06-01', '2023-05-31');
+                INSERT OR IGNORE INTO tenants (id, name, email, phone, status, unit, property, rent_amount, lease_start, lease_end) VALUES (3, 'Peter Jones', 'peter@example.com', '555-123-4567', 'Active', 'C303', 'Riverbend Apartments', 950, '2024-03-15', '2025-03-14');
+                INSERT OR IGNORE INTO tenants (id, name, email, phone, status, unit, property, rent_amount, lease_start, lease_end) VALUES (4, 'Sarah Parker', 'sarah@example.com', '111-222-3333', 'Inactive', 'D404', 'City Heights', 1100, '2021-09-01', '2022-08-31');
+            ",
+            kind: MigrationKind::Up,
+        },
+        // ---------------------------------------------------------------------
+        // Migration 6: Create properties table and seed data
+        // Title: Create Properties Table
+        // Table Name: properties
+        // Columns: id (INTEGER PRIMARY KEY), name (TEXT NOT NULL), address (TEXT NOT NULL), block (TEXT NOT NULL), total_units (INTEGER NOT NULL), occupied_units (INTEGER NOT NULL), vacant_units (INTEGER NOT NULL), monthly_rent (INTEGER NOT NULL), property_type (TEXT NOT NULL), status (TEXT NOT NULL), image (TEXT NOT NULL), last_inspection (TEXT NOT NULL), manager (TEXT NOT NULL)
+        // ---------------------------------------------------------------------
+        Migration {
+            version: 6,
+            description: "create_properties_table_and_seed_data",
+            sql: "
+                CREATE TABLE IF NOT EXISTS properties (
+                    id INTEGER PRIMARY KEY NOT NULL,
+                    name TEXT NOT NULL,
+                    address TEXT NOT NULL,
+                    block TEXT NOT NULL,
+                    total_units INTEGER NOT NULL,
+                    occupied_units INTEGER NOT NULL,
+                    vacant_units INTEGER NOT NULL,
+                    monthly_rent INTEGER NOT NULL,
+                    property_type TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    image TEXT NOT NULL,
+                    last_inspection TEXT NOT NULL,
+                    manager TEXT NOT NULL
+                );
+                INSERT OR IGNORE INTO properties (id, name, address, block, total_units, occupied_units, vacant_units, monthly_rent, property_type, status, image, last_inspection, manager) VALUES (1, 'Sunset Apartments', '123 Oak Street, Downtown', 'Block A', 24, 20, 4, 1200, 'Apartment', 'Active', '/api/placeholder/300/200', '2024-11-15', 'John Smith');
+                INSERT OR IGNORE INTO properties (id, name, address, block, total_units, occupied_units, vacant_units, monthly_rent, property_type, status, image, last_inspection, manager) VALUES (2, 'Pine Grove Complex', '456 Pine Avenue, Midtown', 'Block B', 18, 16, 2, 1400, 'Apartment', 'Active', '/api/placeholder/300/200', '2024-12-01', 'Sarah Johnson');
+                INSERT OR IGNORE INTO properties (id, name, address, block, total_units, occupied_units, vacant_units, monthly_rent, property_type, status, image, last_inspection, manager) VALUES (3, 'Maple Heights', '789 Maple Drive, Uptown', 'Block A', 30, 28, 2, 1600, 'Townhouse', 'Active', '/api/placeholder/300/200', '2024-11-28', 'Mike Davis');
+                INSERT OR IGNORE INTO properties (id, name, address, block, total_units, occupied_units, vacant_units, monthly_rent, property_type, status, image, last_inspection, manager) VALUES (4, 'Cedar Court', '321 Cedar Lane, Westside', 'Block C', 12, 8, 4, 1000, 'House', 'Maintenance', '/api/placeholder/300/200', '2024-10-15', 'Lisa Wilson');
+                INSERT OR IGNORE INTO properties (id, name, address, block, total_units, occupied_units, vacant_units, monthly_rent, property_type, status, image, last_inspection, manager) VALUES (5, 'Elm Street Studios', '654 Elm Street, Downtown', 'Block B', 36, 32, 4, 800, 'Studio', 'Active', '/api/placeholder/300/200', '2024-12-05', 'Tom Anderson');
+                INSERT OR IGNORE INTO properties (id, name, address, block, total_units, occupied_units, vacant_units, monthly_rent, property_type, status, image, last_inspection, manager) VALUES (6, 'Birch Villa', '987 Birch Road, Eastside', 'Block C', 6, 5, 1, 2000, 'Villa', 'Active', '/api/placeholder/300/200', '2024-11-20', 'Emma Brown');
+            ",
+            kind: MigrationKind::Up,
+        },
+        // ---------------------------------------------------------------------
+        // Migration 7: Create expenses table and seed data
+        // Title: Create Expenses Table
+        // Table Name: expenses
+        // Columns: id (TEXT PRIMARY KEY), amount (REAL NOT NULL), category (TEXT NOT NULL), description (TEXT NOT NULL), date (TEXT NOT NULL), unit_id (TEXT NOT NULL), unit_name (TEXT NOT NULL), block_name (TEXT NOT NULL), payment_method (TEXT NOT NULL), vendor (TEXT NOT NULL)
+        // ---------------------------------------------------------------------
+        Migration {
+            version: 7,
+            description: "create_expenses_table_and_seed_data",
+            sql: "
+                CREATE TABLE IF NOT EXISTS expenses (
+                    id TEXT PRIMARY KEY NOT NULL,
+                    amount REAL NOT NULL,
+                    category TEXT NOT NULL,
+                    description TEXT NOT NULL,
+                    date TEXT NOT NULL,
+                    unit_id TEXT NOT NULL,
+                    unit_name TEXT NOT NULL,
+                    block_name TEXT NOT NULL,
+                    payment_method TEXT NOT NULL,
+                    vendor TEXT NOT NULL
+                );
+                INSERT OR IGNORE INTO expenses (id, amount, category, description, date, unit_id, unit_name, block_name, payment_method, vendor) VALUES ('1', 450.0, 'Maintenance', 'Plumbing repair - Kitchen sink', '2024-06-15', 'A101', 'Unit A101', 'Block A', 'Bank Transfer', 'ProFix Plumbing');
+                INSERT OR IGNORE INTO expenses (id, amount, category, description, date, unit_id, unit_name, block_name, payment_method, vendor) VALUES ('2', 1200.0, 'Utilities', 'Electricity bill - Common areas', '2024-06-14', 'COMMON', 'Common Areas', 'Block A', 'Direct Debit', 'PowerCorp');
+                INSERT OR IGNORE INTO expenses (id, amount, category, description, date, unit_id, unit_name, block_name, payment_method, vendor) VALUES ('3', 850.0, 'Security', 'Security system maintenance', '2024-06-12', 'COMMON', 'Common Areas', 'Block B', 'Credit Card', 'SecureGuard Inc');
+                INSERT OR IGNORE INTO expenses (id, amount, category, description, date, unit_id, unit_name, block_name, payment_method, vendor) VALUES ('4', 320.0, 'Cleaning', 'Deep cleaning after tenant move-out', '2024-06-10', 'B205', 'Unit B205', 'Block B', 'Cash', 'CleanPro Services');
+                INSERT OR IGNORE INTO expenses (id, amount, category, description, date, unit_id, unit_name, block_name, payment_method, vendor) VALUES ('5', 2500.0, 'Renovation', 'Bathroom renovation', '2024-06-08', 'A103', 'Unit A103', 'Block A', 'Bank Transfer', 'RenovateRight Co');
+            ",
+            kind: MigrationKind::Up,
+        },
+         // ---------------------------------------------------------------------
+        // Migration 8: Create recent_activities table and seed data
+        // Title: Create Recent Activities Table
+        // Table Name: recent_activities
+        // Columns: activity_type (TEXT NOT NULL), message (TEXT NOT NULL), time (TEXT NOT NULL)
+        // ---------------------------------------------------------------------
+        Migration {
+            version: 8,
+            description: "create_recent_activities_table_and_seed_data",
+            sql: "
+                CREATE TABLE IF NOT EXISTS recent_activities (
+                    activity_type TEXT NOT NULL,
+                    message TEXT PRIMARY KEY NOT NULL, -- Message as primary key assuming messages are unique for simplicity
+                    time TEXT NOT NULL
+                );
+                INSERT OR IGNORE INTO recent_activities (activity_type, message, time) VALUES ('payment', 'Rent payment received from Unit 4B - Oak Street', '2 hours ago');
+                INSERT OR IGNORE INTO recent_activities (activity_type, message, time) VALUES ('maintenance', 'Maintenance request submitted for Unit 12A - Pine Ave', '4 hours ago');
+                INSERT OR IGNORE INTO recent_activities (activity_type, message, time) VALUES ('lease', 'New lease signed for Unit 7C - Maple Drive', '1 day ago');
+                INSERT OR IGNORE INTO recent_activities (activity_type, message, time) VALUES ('inspection', 'Property inspection completed - Cedar Complex', '2 days ago');
+            ",
+            kind: MigrationKind::Up,
+        },
+                // ---------------------------------------------------------------------
+        // Migration 9: Create tasks table and seed data
+        // Title: Create Tasks Table
+        // Table Name: tasks
+        // Columns: task_name (TEXT PRIMARY KEY), due_date (TEXT NOT NULL), priority (TEXT NOT NULL)
+        // ---------------------------------------------------------------------
+        Migration {
+            version: 9,
+            description: "create_tasks_table_and_seed_data",
+            sql: "
+                CREATE TABLE IF NOT EXISTS tasks (
+                    task_name TEXT PRIMARY KEY NOT NULL,
+                    due_date TEXT NOT NULL,
+                    priority TEXT NOT NULL
+                );
+                INSERT OR IGNORE INTO tasks (task_name, due_date, priority) VALUES ('Lease renewal - Unit 5A', 'Tomorrow', 'high');
+                INSERT OR IGNORE INTO tasks (task_name, due_date, priority) VALUES ('Property inspection - Sunset Building', 'Dec 20', 'medium');
+                INSERT OR IGNORE INTO tasks (task_name, due_date, priority) VALUES ('Maintenance follow-up - Unit 3B', 'Dec 22', 'low');
+                INSERT OR IGNORE INTO tasks (task_name, due_date, priority) VALUES ('Rent collection - Oak Street Property', 'Dec 25', 'high');
+            ",
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()
