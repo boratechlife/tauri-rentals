@@ -1,8 +1,11 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
+
+use tauri_plugin_sql::{Builder as SqlBuilder, Migration, MigrationKind};
+
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
 fn greet(name: &str) -> String {
-   format!("Hello, {}!", name)
+    format!("Hello, {}!", name)
 }
 
 // This struct represents a single stat card
@@ -27,7 +30,6 @@ pub struct Payment {
     pub method: String,
     pub category: String,
 }
-
 
 // Define the TenantInfo struct first, as it's nested
 #[derive(Debug, Serialize, Deserialize, Clone)] // Add Clone if you plan to copy instances
@@ -67,7 +69,6 @@ pub struct Unit {
     pub notes: String,
 }
 
-
 #[tauri::command]
 fn get_mock_units() -> Result<Vec<Unit>, String> {
     let mock_units = vec![
@@ -84,7 +85,11 @@ fn get_mock_units() -> Result<Vec<Unit>, String> {
             square_footage: 1200,
             rent: 1800,
             security_deposit: 1800,
-            amenities: vec!["Parking".to_string(), "AC".to_string(), "Pool Access".to_string()],
+            amenities: vec![
+                "Parking".to_string(),
+                "AC".to_string(),
+                "Pool Access".to_string(),
+            ],
             photos: vec![
                 "https://placehold.co/200x150/FF5733/FFFFFF?text=SL-201-1".to_string(),
                 "https://placehold.co/200x150/33FF57/FFFFFF?text=SL-201-2".to_string(),
@@ -247,7 +252,8 @@ fn get_all_payments() -> Vec<Payment> {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RecentActivity {
-    #[serde(rename = "type")] // Map 'type' in JSON to 'activity_type' in Rust to avoid keyword conflict
+    #[serde(rename = "type")]
+    // Map 'type' in JSON to 'activity_type' in Rust to avoid keyword conflict
     pub activity_type: String,
     pub message: String,
     pub time: String,
@@ -364,7 +370,6 @@ fn get_property_types() -> Vec<String> {
         "Villa".to_string(),
     ]
 }
-
 
 #[tauri::command]
 fn get_all_properties() -> Vec<Property> {
@@ -491,7 +496,6 @@ fn get_building_blocks() -> Vec<String> {
     ]
 }
 
-
 #[tauri::command]
 fn get_all_expenses() -> Vec<Expense> {
     // In a real application, this data would come from a database, API, etc.
@@ -588,7 +592,6 @@ fn get_upcoming_tasks() -> Vec<Task> {
     ]
 }
 
-
 #[tauri::command]
 fn get_recent_activities() -> Vec<RecentActivity> {
     vec![
@@ -667,12 +670,53 @@ fn get_expense_categories() -> Vec<String> {
     ]
 }
 
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Define your migrations here
+    let migrations = vec![
+        Migration {
+            version: 1, // Keep the version as 1, as we're extending the initial setup
+            description: "create_users_table_and_seed_data", // Update description
+            sql: "
+                CREATE TABLE IF NOT EXISTS users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    email TEXT UNIQUE NOT NULL
+                );
+                -- Seed data below
+                INSERT OR IGNORE INTO users (name, email) VALUES ('Alice Smith', 'alice@example.com');
+                INSERT OR IGNORE INTO users (name, email) VALUES ('Bob Johnson', 'bob@example.com');
+                INSERT OR IGNORE INTO users (name, email) VALUES ('Charlie Brown', 'charlie@example.com');
+            ",
+            kind: MigrationKind::Up,
+        },
+        // If you have more complex seeding or want to separate concerns,
+        // you could create a new migration with version: 2, description: "seed_initial_data",
+        // and only put INSERT statements there.
+    ];
+
     tauri::Builder::default()
+        .plugin(tauri_plugin_sql::Builder::new().build())
+        .plugin(
+            SqlBuilder::default() // Use our aliased Builder
+                .add_migrations("sqlite:test.db", migrations) // 'test.db' is our database file
+                .build(),
+        )
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet,get_mock_units,get_mock_tenants,get_property_types,get_all_properties,get_all_payments ,get_expense_categories,get_all_expenses,get_stats_cards,get_recent_activities,get_upcoming_tasks,get_building_blocks])
+        .invoke_handler(tauri::generate_handler![
+            greet,
+            get_mock_units,
+            get_mock_tenants,
+            get_property_types,
+            get_all_properties,
+            get_all_payments,
+            get_expense_categories,
+            get_all_expenses,
+            get_stats_cards,
+            get_recent_activities,
+            get_upcoming_tasks,
+            get_building_blocks
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

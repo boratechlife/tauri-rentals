@@ -1,8 +1,14 @@
 import { useEffect, useState } from "react";
-
+import Database from "@tauri-apps/plugin-sql";
 import { Users, AlertCircle, Calendar, TrendingUp, Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
+
+type User = {
+  id: number;
+  name: string;
+  email: string;
+};
 
 const PropertyManagerDashboard = () => {
   const [activeTab, setActiveTab] = useState("overview");
@@ -14,6 +20,26 @@ const PropertyManagerDashboard = () => {
   const [loading, setLoading] = useState(true);
 
   const [greeting, setGreeting] = useState("");
+  const [users, setUsers] = useState<User[]>([]);
+
+  async function getUsers() {
+    try {
+      const db = await Database.load("sqlite:test.db");
+      const dbUsers = await db.select<User[]>("SELECT * FROM users");
+
+      setError("");
+      setUsers(dbUsers);
+      console.log("Users fetched successfully:", dbUsers);
+      // setIsLoadingUsers(false);
+    } catch (error) {
+      console.log(error);
+      setError("Failed to get users - check console");
+    }
+  }
+
+  useEffect(() => {
+    getUsers();
+  }, []);
 
   useEffect(() => {
     async function loadTasks() {
