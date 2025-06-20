@@ -1,16 +1,6 @@
-import React, { useEffect, useState } from "react";
-import {
-  Home,
-  Users,
-  DollarSign,
-  AlertCircle,
-  Calendar,
-  TrendingUp,
-  Settings,
-  Bell,
-  Search,
-  Plus,
-} from "lucide-react";
+import { useEffect, useState } from "react";
+
+import { Users, AlertCircle, Calendar, TrendingUp, Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 
@@ -18,67 +8,57 @@ const PropertyManagerDashboard = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const navigate = useNavigate(); // Initialize useNavigate hook
   const [statsCards, setStatsCards] = useState([]);
+  const [upcomingTasks, setUpcomingTasks] = useState([]);
+  const [recentActivities, setRecentActivities] = useState([]);
   const [error, setError] = useState("");
-  useEffect(() => {
-    async function loadStats() {
-      try {
-        const data = await invoke("get_stats_cards");
-        setStatsCards(data);
-      } catch (err) {
-        console.error("Failed to load stats cards:", err);
-        setError("Failed to load dashboard data.");
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadStats();
-  }, []); // Empty dependency array means this runs once on mount
+  const [loading, setLoading] = useState(true);
 
   const [greeting, setGreeting] = useState("");
 
   useEffect(() => {
-    invoke<string>("greet", { name: "Next.js" })
-      .then((result) => setGreeting(result))
-      .catch(console.error);
+    async function loadTasks() {
+      try {
+        const data = await invoke("get_upcoming_tasks");
+        setUpcomingTasks(data);
+      } catch (err) {
+        console.error("Failed to load upcoming tasks:", err);
+        setError("Failed to load upcoming tasks data.");
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadTasks();
+  }, []); // Empty dependency array: runs once on component mount
+
+  useEffect(() => {
+    // Define an async function that will fetch all data
+    async function fetchData() {
+      try {
+        // Use Promise.all to fetch all data concurrently
+        // This is efficient because requests happen in parallel
+        const [activitiesData, statsCardsData, greetingResult] =
+          await Promise.all([
+            invoke("get_recent_activities"),
+            invoke("get_stats_cards"),
+            invoke<string>("greet", { name: "Next.js" }),
+          ]);
+
+        // Once all promises resolve, update the respective states
+        setRecentActivities(activitiesData);
+        setStatsCards(statsCardsData);
+        setGreeting(greetingResult);
+      } catch (err) {
+        console.error("Failed to load dashboard data:", err);
+        setError("Failed to load essential dashboard data."); // Generic error for all fetches
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchData(); // Call the async function
+
+    // The empty dependency array ensures this effect runs only once on mount
   }, []);
-
-  const recentActivities = [
-    {
-      type: "payment",
-      message: "Rent payment received from Unit 4B - Oak Street",
-      time: "2 hours ago",
-    },
-    {
-      type: "maintenance",
-      message: "Maintenance request submitted for Unit 12A - Pine Ave",
-      time: "4 hours ago",
-    },
-    {
-      type: "lease",
-      message: "New lease signed for Unit 7C - Maple Drive",
-      time: "1 day ago",
-    },
-    {
-      type: "inspection",
-      message: "Property inspection completed - Cedar Complex",
-      time: "2 days ago",
-    },
-  ];
-
-  const upcomingTasks = [
-    { task: "Lease renewal - Unit 5A", due: "Tomorrow", priority: "high" },
-    {
-      task: "Property inspection - Sunset Building",
-      due: "Dec 20",
-      priority: "medium",
-    },
-    { task: "Maintenance follow-up - Unit 3B", due: "Dec 22", priority: "low" },
-    {
-      task: "Rent collection - Oak Street Property",
-      due: "Dec 25",
-      priority: "high",
-    },
-  ];
 
   const styles = {
     container: {
@@ -455,7 +435,7 @@ const PropertyManagerDashboard = () => {
           <div style={styles.card}>
             <div style={styles.cardHeader}>
               <h2 style={styles.cardTitle}>Recent Activity</h2>
-              {greeting + "Available"}
+
               <a
                 href="#"
                 style={styles.linkButton}

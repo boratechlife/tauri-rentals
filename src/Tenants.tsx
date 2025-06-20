@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { Search, Plus, Edit } from "lucide-react";
+import React, { useState, useEffect, useCallback } from 'react';
+import { Search, Plus, Edit } from 'lucide-react';
+import { invoke } from '@tauri-apps/api/core';
 
 // ---
 // Interfaces
@@ -9,10 +10,10 @@ interface Tenant {
   name: string;
   email: string;
   phone: string;
-  status: "Active" | "Moving Out" | "Inactive"; // More specific status types
+  status: 'Active' | 'Moving Out' | 'Inactive'; // More specific status types
   unit: string;
   property: string;
-  rentAmount: number;
+  rent_amount: number;
   leaseStart: string;
   leaseEnd: string;
 }
@@ -23,13 +24,14 @@ interface Tenant {
 const TenantsList: React.FC = () => {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [searchText, setSearchText] = useState<string>("");
+  const [searchText, setSearchText] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
 
   // Simulate API call to fetch tenants
   const fetchTenants = useCallback(async () => {
     setLoading(true);
     setError(null);
+
     try {
       // In a real application, you'd replace this with an actual API call:
       // const response = await fetch("/api/tenants");
@@ -39,61 +41,12 @@ const TenantsList: React.FC = () => {
       // const data = await response.json();
       // setTenants(data);
 
-      // Simulated data for demonstration
-      const mockTenants: Tenant[] = [
-        {
-          id: 1,
-          name: "John Doe",
-          email: "john@example.com",
-          phone: "123-456-7890",
-          status: "Active",
-          unit: "A101",
-          property: "Sunset Villas",
-          rentAmount: 1200,
-          leaseStart: "2023-01-01",
-          leaseEnd: "2023-12-31",
-        },
-        {
-          id: 2,
-          name: "Jane Smith",
-          email: "jane@example.com",
-          phone: "098-765-4321",
-          status: "Moving Out",
-          unit: "B202",
-          property: "Green Meadows",
-          rentAmount: 1500,
-          leaseStart: "2022-06-01",
-          leaseEnd: "2023-05-31",
-        },
-        {
-          id: 3,
-          name: "Peter Jones",
-          email: "peter@example.com",
-          phone: "555-123-4567",
-          status: "Active",
-          unit: "C303",
-          property: "Riverbend Apartments",
-          rentAmount: 950,
-          leaseStart: "2024-03-15",
-          leaseEnd: "2025-03-14",
-        },
-        {
-          id: 4,
-          name: "Sarah Parker",
-          email: "sarah@example.com",
-          phone: "111-222-3333",
-          status: "Inactive",
-          unit: "D404",
-          property: "City Heights",
-          rentAmount: 1100,
-          leaseStart: "2021-09-01",
-          leaseEnd: "2022-08-31",
-        },
-      ];
-      setTenants(mockTenants);
+      const data = await invoke<Tenant[]>('get_mock_tenants');
+
+      setTenants(data); // Use mock data if API fails
     } catch (err) {
-      console.error("Failed to fetch tenants:", err);
-      setError("Failed to load tenants. Please try again later.");
+      console.error('Failed to fetch tenants:', err);
+      setError('Failed to load tenants. Please try again later.');
     } finally {
       setLoading(false);
     }
@@ -114,7 +67,7 @@ const TenantsList: React.FC = () => {
   );
 
   const handleAddTenant = () => {
-    console.log("Add Tenant functionality goes here!");
+    console.log('Add Tenant functionality goes here!');
     // Implement navigation to a new tenant form or open a modal
   };
 
@@ -184,9 +137,9 @@ const TenantsList: React.FC = () => {
       {/* Tenants Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {filteredTenants.length > 0 ? (
-          filteredTenants.map((tenant) => (
+          filteredTenants.map((tenant, index) => (
             <div
-              key={tenant.id}
+              key={tenant.id + '' + index}
               className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col justify-between hover:shadow-md transition-shadow duration-200"
             >
               <div>
@@ -201,11 +154,11 @@ const TenantsList: React.FC = () => {
                   </div>
                   <span
                     className={`inline-flex px-3 py-1 rounded-full text-xs font-medium uppercase tracking-wide ${
-                      tenant.status === "Active"
-                        ? "bg-green-100 text-green-800"
-                        : tenant.status === "Moving Out"
-                        ? "bg-yellow-100 text-yellow-800"
-                        : "bg-red-100 text-red-800"
+                      tenant.status === 'Active'
+                        ? 'bg-green-100 text-green-800'
+                        : tenant.status === 'Moving Out'
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : 'bg-red-100 text-red-800'
                     }`}
                   >
                     {tenant.status}
@@ -214,19 +167,19 @@ const TenantsList: React.FC = () => {
 
                 <div className="space-y-2 text-sm text-gray-700">
                   <p>
-                    <span className="font-medium text-gray-800">Email:</span>{" "}
+                    <span className="font-medium text-gray-800">Email:</span>{' '}
                     {tenant.email}
                   </p>
                   <p>
-                    <span className="font-medium text-gray-800">Phone:</span>{" "}
+                    <span className="font-medium text-gray-800">Phone:</span>{' '}
                     {tenant.phone}
                   </p>
                   <p>
                     <span className="font-medium text-gray-800">Rent:</span> $
-                    {tenant.rentAmount.toLocaleString()}/month
+                    {tenant.rent_amount.toLocaleString()}/month
                   </p>
                   <p>
-                    <span className="font-medium text-gray-800">Lease:</span>{" "}
+                    <span className="font-medium text-gray-800">Lease:</span>{' '}
                     {tenant.leaseStart} to {tenant.leaseEnd}
                   </p>
                 </div>

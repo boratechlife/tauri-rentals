@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   DollarSign,
   TrendingUp,
@@ -18,7 +18,8 @@ import {
   MoreHorizontal,
   Edit,
   Trash2,
-} from "lucide-react";
+} from 'lucide-react';
+import { invoke } from '@tauri-apps/api/core';
 
 interface Expense {
   id: string;
@@ -26,95 +27,55 @@ interface Expense {
   category: string;
   description: string;
   date: string;
-  unitId: string;
+  unitId: string; // Note: camelCase here to match original JS data
   unitName: string;
   blockName: string;
   paymentMethod: string;
-  vendor?: string;
-  receipt?: string;
+  vendor: string;
 }
 
 const ExpensePage: React.FC = () => {
-  const [expenses, setExpenses] = useState<Expense[]>([
-    {
-      id: "1",
-      amount: 450.0,
-      category: "Maintenance",
-      description: "Plumbing repair - Kitchen sink",
-      date: "2024-06-15",
-      unitId: "A101",
-      unitName: "Unit A101",
-      blockName: "Block A",
-      paymentMethod: "Bank Transfer",
-      vendor: "ProFix Plumbing",
-    },
-    {
-      id: "2",
-      amount: 1200.0,
-      category: "Utilities",
-      description: "Electricity bill - Common areas",
-      date: "2024-06-14",
-      unitId: "COMMON",
-      unitName: "Common Areas",
-      blockName: "Block A",
-      paymentMethod: "Direct Debit",
-      vendor: "PowerCorp",
-    },
-    {
-      id: "3",
-      amount: 850.0,
-      category: "Security",
-      description: "Security system maintenance",
-      date: "2024-06-12",
-      unitId: "COMMON",
-      unitName: "Common Areas",
-      blockName: "Block B",
-      paymentMethod: "Credit Card",
-      vendor: "SecureGuard Inc",
-    },
-    {
-      id: "4",
-      amount: 320.0,
-      category: "Cleaning",
-      description: "Deep cleaning after tenant move-out",
-      date: "2024-06-10",
-      unitId: "B205",
-      unitName: "Unit B205",
-      blockName: "Block B",
-      paymentMethod: "Cash",
-      vendor: "CleanPro Services",
-    },
-    {
-      id: "5",
-      amount: 2500.0,
-      category: "Renovation",
-      description: "Bathroom renovation",
-      date: "2024-06-08",
-      unitId: "A103",
-      unitName: "Unit A103",
-      blockName: "Block A",
-      paymentMethod: "Bank Transfer",
-      vendor: "RenovateRight Co",
-    },
-  ]);
-
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("All");
-  const [selectedBlock, setSelectedBlock] = useState("All");
-  const [dateRange, setDateRange] = useState("This Month");
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [categories, setCategories] = useState([]);
+  const [blocks, setBlocks] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [selectedBlock, setSelectedBlock] = useState('All');
+  const [dateRange, setDateRange] = useState('This Month');
   const [showAddExpense, setShowAddExpense] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const categories = [
-    "All",
-    "Maintenance",
-    "Utilities",
-    "Security",
-    "Cleaning",
-    "Renovation",
-    "Insurance",
-    "Legal",
-  ];
-  const blocks = ["All", "Block A", "Block B", "Block C"];
+  useEffect(() => {
+    async function fetchData() {
+      setLoading(true); // Ensure loading is true at the start of fetch
+      setError(null); // Clear any previous errors
+
+      try {
+        // Use Promise.all to fetch all data concurrently
+        const [categoriesData, blocksData, expensesData] = await Promise.all([
+          invoke('get_expense_categories'),
+          invoke('get_building_blocks'),
+          invoke('get_all_expenses'), // Note: Type assertion '<Expense[]>' is usually handled by TypeScript, not JavaScript
+        ]);
+
+        // Once all promises resolve, update the respective states
+        setCategories(categoriesData);
+        setBlocks(blocksData);
+        setExpenses(expensesData);
+      } catch (err) {
+        // Consolidated error handling for any failed fetch
+        console.error('Failed to load dashboard data:', err);
+        setError('Failed to load essential dashboard data. Please try again.');
+      } finally {
+        setLoading(false); // Set loading to false once all fetches are complete
+      }
+    }
+
+    fetchData(); // Execute the consolidated fetch function
+
+    // The empty dependency array ensures this effect runs only once on component mount.
+  }, []);
 
   const categoryIcons = {
     Maintenance: Wrench,
@@ -134,9 +95,9 @@ const ExpensePage: React.FC = () => {
         expense.vendor?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         expense.unitName.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory =
-        selectedCategory === "All" || expense.category === selectedCategory;
+        selectedCategory === 'All' || expense.category === selectedCategory;
       const matchesBlock =
-        selectedBlock === "All" || expense.blockName === selectedBlock;
+        selectedBlock === 'All' || expense.blockName === selectedBlock;
       return matchesSearch && matchesCategory && matchesBlock;
     });
   }, [expenses, searchTerm, selectedCategory, selectedBlock]);
@@ -241,8 +202,8 @@ const ExpensePage: React.FC = () => {
                   <span
                     className={`text-sm font-medium ${
                       summaryStats.percentageChange >= 0
-                        ? "text-green-600"
-                        : "text-red-600"
+                        ? 'text-green-600'
+                        : 'text-red-600'
                     }`}
                   >
                     {Math.abs(summaryStats.percentageChange).toFixed(1)}%

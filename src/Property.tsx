@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Search,
   Filter,
@@ -15,6 +15,7 @@ import {
   Home,
   Calendar,
 } from 'lucide-react';
+import { invoke } from '@tauri-apps/api/core';
 
 const PropertiesPage = () => {
   const [viewMode, setViewMode] = useState('grid');
@@ -23,104 +24,40 @@ const PropertiesPage = () => {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedType, setSelectedType] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
+  const [properties, setProperties] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [blocks, setBlocks] = useState<string[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [types, setTypes] = useState([]); //
 
-  // Mock data for properties
-  const properties = [
-    {
-      id: 1,
-      name: 'Sunset Apartments',
-      address: '123 Oak Street, Downtown',
-      block: 'Block A',
-      totalUnits: 24,
-      occupiedUnits: 20,
-      vacantUnits: 4,
-      monthlyRent: 1200,
-      type: 'Apartment',
-      status: 'Active',
-      image: '/api/placeholder/300/200',
-      lastInspection: '2024-11-15',
-      manager: 'John Smith',
-    },
-    {
-      id: 2,
-      name: 'Pine Grove Complex',
-      address: '456 Pine Avenue, Midtown',
-      block: 'Block B',
-      totalUnits: 18,
-      occupiedUnits: 16,
-      vacantUnits: 2,
-      monthlyRent: 1400,
-      type: 'Apartment',
-      status: 'Active',
-      image: '/api/placeholder/300/200',
-      lastInspection: '2024-12-01',
-      manager: 'Sarah Johnson',
-    },
-    {
-      id: 3,
-      name: 'Maple Heights',
-      address: '789 Maple Drive, Uptown',
-      block: 'Block A',
-      totalUnits: 30,
-      occupiedUnits: 28,
-      vacantUnits: 2,
-      monthlyRent: 1600,
-      type: 'Townhouse',
-      status: 'Active',
-      image: '/api/placeholder/300/200',
-      lastInspection: '2024-11-28',
-      manager: 'Mike Davis',
-    },
-    {
-      id: 4,
-      name: 'Cedar Court',
-      address: '321 Cedar Lane, Westside',
-      block: 'Block C',
-      totalUnits: 12,
-      occupiedUnits: 8,
-      vacantUnits: 4,
-      monthlyRent: 1000,
-      type: 'House',
-      status: 'Maintenance',
-      image: '/api/placeholder/300/200',
-      lastInspection: '2024-10-15',
-      manager: 'Lisa Wilson',
-    },
-    {
-      id: 5,
-      name: 'Elm Street Studios',
-      address: '654 Elm Street, Downtown',
-      block: 'Block B',
-      totalUnits: 36,
-      occupiedUnits: 32,
-      vacantUnits: 4,
-      monthlyRent: 800,
-      type: 'Studio',
-      status: 'Active',
-      image: '/api/placeholder/300/200',
-      lastInspection: '2024-12-05',
-      manager: 'Tom Anderson',
-    },
-    {
-      id: 6,
-      name: 'Birch Villa',
-      address: '987 Birch Road, Eastside',
-      block: 'Block C',
-      totalUnits: 6,
-      occupiedUnits: 5,
-      vacantUnits: 1,
-      monthlyRent: 2000,
-      type: 'Villa',
-      status: 'Active',
-      image: '/api/placeholder/300/200',
-      lastInspection: '2024-11-20',
-      manager: 'Emma Brown',
-    },
-  ];
+  // Load properties data on component mount
+  useEffect(() => {
+    async function loadProperties() {
+      try {
+        const [
+          propertiesData,
+          blocksData,
+          typesData, // <--- Fetch types data
+        ] = await Promise.all([
+          invoke('get_all_properties'),
+          invoke<string[]>('get_building_blocks'),
+          invoke<string[]>('get_property_types'), // <--- Invoke the new command
+        ]);
 
-  const blocks = ['all', 'Block A', 'Block B', 'Block C'];
+        setBlocks(blocksData);
+        setProperties(propertiesData);
+        setTypes(typesData);
+      } catch (err) {
+        console.error('Failed to load properties:', err);
+        setError('Failed to load properties data.');
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadProperties();
+  }, []); // Runs once on component mount
+
   const statuses = ['all', 'Active', 'Maintenance', 'Vacant'];
-  const types = ['all', 'Apartment', 'Townhouse', 'House', 'Studio', 'Villa'];
 
   // Filter properties based on search and filters
   const filteredProperties = useMemo(() => {
@@ -504,7 +441,7 @@ const PropertiesPage = () => {
         <div style={styles.propertyFooter}>
           <div style={styles.propertyMeta}>
             <div>Block: {property.block}</div>
-            <div>Rent: ${property.monthlyRent}/month</div>
+            <div>Rent: ${property.monthly_rent}/month</div>
           </div>
           <div style={styles.propertyActions}>
             <button
@@ -570,7 +507,7 @@ const PropertiesPage = () => {
         <div style={styles.listStats}>
           <div>{property.block}</div>
           <div>{property.type}</div>
-          <div>${property.monthlyRent}/month</div>
+          <div>${property.monthly_rent}/month</div>
         </div>
         <div style={styles.listStats}>
           <div>Manager: {property.manager}</div>
