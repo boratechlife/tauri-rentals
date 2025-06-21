@@ -1,10 +1,12 @@
-import React, { useState, useMemo, useEffect } from "react";
-import { Search, Plus, Eye, Edit, Trash2 } from "lucide-react";
-import { invoke } from "@tauri-apps/api/core";
+import React, { useState, useMemo, useEffect } from 'react';
+import { Search, Plus, Eye, Edit, Trash2 } from 'lucide-react';
+import { invoke } from '@tauri-apps/api/core';
 
-import Database from "@tauri-apps/plugin-sql";
+import Database from '@tauri-apps/plugin-sql';
+import { PaymentFormModal } from './PaymentFormModal';
+import { DeleteConfirmationModal } from './DeleteConfirmationModal';
 
-interface Payment {
+export interface Payment {
   id: string;
   tenant: string;
   unit: string;
@@ -12,9 +14,9 @@ interface Payment {
   amount: number;
   date: string;
   dueDate: string;
-  status: "Paid" | "Pending" | "Late" | "Overdue";
-  method: "Bank Transfer" | "Credit Card" | "Check" | "Cash";
-  category: "Rent" | "Utilities" | "Maintenance" | "Deposit";
+  status: 'Paid' | 'Pending' | 'Late' | 'Overdue';
+  method: 'Bank Transfer' | 'Credit Card' | 'Check' | 'Cash';
+  category: 'Rent' | 'Utilities' | 'Maintenance' | 'Deposit';
 }
 
 interface Tenant {
@@ -27,7 +29,7 @@ interface Tenant {
   leaseStart: string;
   leaseEnd: string;
   rentAmount: number;
-  status: "Active" | "Moving Out" | "Overdue";
+  status: 'Active' | 'Moving Out' | 'Overdue';
 }
 
 interface Property {
@@ -41,33 +43,128 @@ interface Property {
 }
 
 const PropertyManagementDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState("dashboard");
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [payments, setPayments] = useState([]);
-  const [searchText, setSearchText] = useState("");
-  const [filterStatus, setFilterStatus] = useState("all");
-  const [dateRange, setDateRange] = useState("thisMonth");
+  const [searchText, setSearchText] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [dateRange, setDateRange] = useState('thisMonth');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function fetchPayments() {
-      try {
-        setLoading(true);
-        const db = await Database.load("sqlite:test.db");
-        // Assuming your payments table has these columns
-        const dbPayments = await db.select(
-          `SELECT id, tenant, unit, property, amount, date, due_date, status, method, category FROM payments`
-        );
-        setError("");
-        setPayments(dbPayments);
-        console.log("Payments fetched successfully:", dbPayments);
-      } catch (err) {
-        console.error("Error fetching payments:", err);
-        setError("Failed to get payments - check console");
-      } finally {
-        setLoading(false);
-      }
+  // State for CRUD Modals - NEW
+  const [showAddEditModal, setShowAddEditModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null); // For editing or deleting
+
+  // Database instance, initialized once - NEW
+  const [dbInstance, setDbInstance] = useState<Database | null>(null);
+
+  async function fetchPayments() {
+    try {
+      setLoading(true);
+      const db = await Database.load('sqlite:test.db');
+      // Assuming your payments table has these columns
+      const dbPayments = await db.select(
+        `SELECT id, tenant, unit, property, amount, date, due_date, status, method, category FROM payments`
+      );
+      setError('');
+      setPayments(dbPayments);
+      console.log('Payments fetched successfully:', dbPayments);
+    } catch (err) {
+      console.error('Error fetching payments:', err);
+      setError('Failed to get payments - check console');
+    } finally {
+      setLoading(false);
     }
+  }
+
+  // Function to handle payment deletion - NEW
+  const handleDeletePayment = async () => {
+    if (!selectedPayment) {
+      setError('Database not initialized or no payment selected for deletion.');
+      return;
+    }
+    setLoading(true);
+    const db = await Database.load('sqlite:test.db');
+    try {
+      await db.execute(`DELETE FROM payments WHERE id = $1`, [
+        selectedPayment.id,
+      ]);
+      console.log('Payment deleted successfully:', selectedPayment.id);
+      fetchPayments(); // Refresh the list after deletion
+      setShowDeleteConfirm(false); // Close the confirmation modal
+      setSelectedPayment(null); // Clear selected payment
+    } catch (err) {
+      console.error('Error deleting payment:', err);
+      setError('Failed to delete payment.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Function to handle adding or updating a payment - NEW/MODIFIED
+  const handleSavePayment = async (
+    paymentData: Omit<Payment, 'id'> | Payment
+  ) => {
+    const db = await Database.load('sqlite:test.db');
+    setLoading(true);
+    try {
+      if ('id' in paymentData && paymentData.id !== null) {
+        // Update existing payment - MODIFIED
+        await db.execute(
+          `UPDATE payments SET tenant = $1, unit = $2, property = $3, amount = $4, date = $5, due_date = $6, status = $7, method = $8, category = $9 WHERE id = $10`,
+          [
+            paymentData.tenant,
+            paymentData.unit,
+            paymentData.property,
+            paymentData.amount,
+            paymentData.date,
+            paymentData.dueDate,
+            paymentData.status,
+            paymentData.method,
+            paymentData.category,
+            paymentData.id, // Use the ID for the WHERE clause
+          ]
+        );
+        console.log('Payment updated successfully:', paymentData.id);
+      } else {
+        // Add new payment (from Step 3)
+        await db.execute(
+          `INSERT INTO payments (id,tenant, unit, property, amount, date, due_date, status, method, category) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9,$10)`,
+          [
+            // generate id by finding the max id and adding one
+            (() => {
+              // Find the max id in the current payments array (as number)
+              const maxId = payments.reduce((max, p) => {
+                const idNum = parseInt(p.id, 10);
+                return !isNaN(idNum) && idNum > max ? idNum : max;
+              }, 0);
+              return String(maxId + 1);
+            })(),
+            paymentData.tenant,
+            paymentData.unit,
+            paymentData.property,
+            paymentData.amount,
+            paymentData.date,
+            paymentData.dueDate,
+            paymentData.status,
+            paymentData.method,
+            paymentData.category,
+          ]
+        );
+        console.log('New payment added successfully.');
+      }
+      fetchPayments(); // Refresh the list after save
+      setShowAddEditModal(false); // Close the modal
+      setSelectedPayment(null); // Clear selected payment
+    } catch (err) {
+      console.error('Error saving payment:', err);
+      setError('Failed to save payment.');
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => {
     fetchPayments();
   }, []);
 
@@ -78,7 +175,7 @@ const PropertyManagementDashboard: React.FC = () => {
         payment.unit.toLowerCase().includes(searchText.toLowerCase()) ||
         payment.property.toLowerCase().includes(searchText.toLowerCase());
       const matchesFilter =
-        filterStatus === "all" ||
+        filterStatus === 'all' ||
         payment.status.toLowerCase() === filterStatus.toLowerCase();
       return matchesSearch && matchesFilter;
     });
@@ -131,7 +228,13 @@ const PropertyManagementDashboard: React.FC = () => {
                 <option value="custom">Custom Range</option>
               </select>
 
-              <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+              <button
+                onClick={() => {
+                  setSelectedPayment(null); // Ensure no old data for add mode - MODIFIED
+                  setShowAddEditModal(true);
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
                 <Plus className="w-4 h-4" />
                 Add Payment
               </button>
@@ -202,30 +305,42 @@ const PropertyManagementDashboard: React.FC = () => {
                       <td className="py-4 px-6">
                         <span
                           className={`inline-flex px-3 py-1 rounded-full text-sm font-medium ${
-                            payment.status === "Paid"
-                              ? "bg-green-100 text-green-800"
-                              : payment.status === "Pending"
-                              ? "bg-yellow-100 text-yellow-800"
-                              : payment.status === "Late"
-                              ? "bg-orange-100 text-orange-800"
-                              : "bg-red-100 text-red-800"
+                            payment.status === 'Paid'
+                              ? 'bg-green-100 text-green-800'
+                              : payment.status === 'Pending'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : payment.status === 'Late'
+                              ? 'bg-orange-100 text-orange-800'
+                              : 'bg-red-100 text-red-800'
                           }`}
                         >
                           {payment.status}
                         </span>
                       </td>
                       <td className="py-4 px-6 text-gray-900">
-                        {payment.method || "-"}
+                        {payment.method || '-'}
                       </td>
                       <td className="py-4 px-6">
                         <div className="flex items-center gap-2">
                           <button className="p-1 text-blue-600 hover:text-blue-800 transition-colors">
                             <Eye className="w-4 h-4" />
                           </button>
-                          <button className="p-1 text-green-600 hover:text-green-800 transition-colors">
+                          <button
+                            onClick={() => {
+                              setSelectedPayment(payment); // Set the payment to be edited - MODIFIED
+                              setShowAddEditModal(true);
+                            }}
+                            className="p-1 text-green-600 hover:text-green-800 transition-colors"
+                          >
                             <Edit className="w-4 h-4" />
                           </button>
-                          <button className="p-1 text-red-600 hover:text-red-800 transition-colors">
+                          <button
+                            onClick={() => {
+                              setSelectedPayment(payment); // Set the payment to be deleted - MODIFIED
+                              setShowDeleteConfirm(true);
+                            }}
+                            className="p-1 text-red-600 hover:text-red-800 transition-colors"
+                          >
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
@@ -238,6 +353,22 @@ const PropertyManagementDashboard: React.FC = () => {
           </div>
         </div>
       </main>
+
+      {/* Payment Add/Edit Modal - NEW */}
+      <PaymentFormModal
+        isOpen={showAddEditModal}
+        onClose={() => setShowAddEditModal(false)}
+        onSave={handleSavePayment}
+        initialData={selectedPayment}
+      />
+
+      {/* Delete Confirmation Modal - NEW */}
+      <DeleteConfirmationModal
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={handleDeletePayment}
+        itemName={selectedPayment?.tenant || 'this payment'} // Show tenant name in confirmation
+      />
     </div>
   );
 };
