@@ -1,17 +1,19 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { Search, Plus, Edit } from "lucide-react";
-import Database from "@tauri-apps/plugin-sql";
-import { invoke } from "@tauri-apps/api/core";
+import React, { useState, useEffect, useCallback } from 'react';
+import { Search, Plus, Edit, Trash2 } from 'lucide-react';
+import Database from '@tauri-apps/plugin-sql';
+import { invoke } from '@tauri-apps/api/core';
+import { DeleteConfirmationModal } from './DeleteConfirmationModal';
+import { TenantFormModal } from './TenantFormModal';
 
 // ---
 // Interfaces
 // ---
-interface Tenant {
+export interface Tenant {
   id: number;
   name: string;
   email: string;
   phone: string;
-  status: "Active" | "Moving Out" | "Inactive"; // More specific status types
+  status: 'Active' | 'Moving Out' | 'Inactive'; // More specific status types
   unit: string;
   property: string;
   rent_amount: number;
@@ -25,63 +27,117 @@ interface Tenant {
 const TenantsList: React.FC = () => {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [searchText, setSearchText] = useState<string>("");
+  const [searchText, setSearchText] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
 
-  // // Simulate API call to fetch tenants
-  // const fetchTenants = useCallback(async () => {
-  //   setLoading(true);
-  //   setError(null);
+  // CRUD Modal States - NEW
+  const [showAddEditTenantModal, setShowAddEditTenantModal] = useState(false);
+  const [showDeleteTenantConfirm, setShowDeleteTenantConfirm] = useState(false);
+  const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null); // For editing or deleting
 
-  //   try {
-  //     // In a real application, you'd replace this with an actual API call:
-  //     // const response = await fetch("/api/tenants");
-  //     // if (!response.ok) {
-  //     //   throw new Error(`HTTP error! status: ${response.status}`);
-  //     // }
-  //     // const data = await response.json();
-  //     // setTenants(data);
-
-  //     const data = await invoke<Tenant[]>('get_mock_tenants');
-
-  //     setTenants(data); // Use mock data if API fails
-  //   } catch (err) {
-  //     console.error('Failed to fetch tenants:', err);
-  //     setError('Failed to load tenants. Please try again later.');
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // }, []);
-
-  // useEffect(() => {
-  //   fetchTenants();
-  // }, [fetchTenants]); // Dependency array ensures it runs once on mount
-
-  useEffect(() => {
-    async function fetchTenants() {
-      try {
-        setLoading(true);
-        const db = await Database.load("sqlite:test.db");
-        // Adjust column names to match your 'tenants' and 'units' table schema
-        const dbTenants = await db.select(
-          `SELECT
+  async function fetchTenants() {
+    try {
+      setLoading(true);
+      const db = await Database.load('sqlite:test.db');
+      // Adjust column names to match your 'tenants' and 'units' table schema
+      const dbTenants = await db.select(
+        `SELECT
              t.id, t.name, t.email, t.phone, t.status,
              u.unit_number as unit, p.name as property,
              t.rent_amount, t.lease_start, t.lease_end
            FROM tenants t
            LEFT JOIN units u ON t.unit = u.id
            LEFT JOIN properties p ON u.property = p.id;`
-        );
-        setError("");
-        setTenants(dbTenants);
-        console.log("Tenants fetched successfully:", dbTenants);
-      } catch (err) {
-        console.error("Error fetching tenants:", err);
-        setError("Failed to get tenants - check console");
-      } finally {
-        setLoading(false);
-      }
+      );
+      setError('');
+      setTenants(dbTenants);
+      console.log('Tenants fetched successfully:', dbTenants);
+    } catch (err) {
+      console.error('Error fetching tenants:', err);
+      setError('Failed to get tenants - check console');
+    } finally {
+      setLoading(false);
     }
+  }
+
+  // Step 9: Implement Delete Functionality with Confirmation Modal - MODIFIED
+  const handleDeleteTenant = async () => {
+    const db = await Database.load('sqlite:test.db');
+
+    setLoading(true);
+    try {
+      await db.execute(`DELETE FROM tenants WHERE id = $1`, [
+        selectedTenant.id,
+      ]);
+      console.log(
+        'Tenant deleted successfully from SQLite:',
+        selectedTenant.id
+      );
+      fetchTenants(); // Refresh the list after deletion
+      setShowDeleteTenantConfirm(false); // Close the confirmation modal
+      setSelectedTenant(null); // Clear selected tenant
+    } catch (err) {
+      console.error('Error deleting tenant from SQLite:', err);
+      setError('Failed to delete tenant.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveTenant = async (tenantData: Omit<Tenant, 'id'> | Tenant) => {
+    const db = await Database.load('sqlite:test.db');
+
+    setLoading(true);
+    try {
+      if ('id' in tenantData && tenantData.id !== null) {
+        // Update existing tenant (Step 7) - MODIFIED
+        console.log('Updating tenant:', tenantData);
+        await db.execute(
+          `UPDATE tenants SET name = $1, email = $2, phone = $3, status = $4, unit = $5, property = $6, rent_amount = $7, lease_start = $8, lease_end = $9 WHERE id = $10`,
+          [
+            tenantData.name,
+            tenantData.email,
+            tenantData.phone,
+            tenantData.status,
+            tenantData.unit,
+            tenantData.property,
+            tenantData.rent_amount,
+            tenantData.leaseStart || selectedTenant?.lease_start,
+            tenantData.leaseEnd || selectedTenant?.lease_end,
+            tenantData.id, // Use ID for the WHERE clause
+          ]
+        );
+        console.log('Tenant updated successfully in SQLite:', tenantData.id);
+      } else {
+        // Add new tenant (Step 5)
+        await db.execute(
+          `INSERT INTO tenants (name, email, phone, status, unit, property, rent_amount, lease_start, lease_end) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+          [
+            tenantData.name,
+            tenantData.email,
+            tenantData.phone,
+            tenantData.status,
+            tenantData.unit,
+            tenantData.property,
+            tenantData.rent_amount,
+            tenantData.leaseStart,
+            tenantData.leaseEnd,
+          ]
+        );
+        console.log('New tenant added successfully to SQLite.');
+      }
+      fetchTenants(); // Refresh the list after save
+      setShowAddEditTenantModal(false); // Close the modal
+      setSelectedTenant(null); // Clear selected tenant
+    } catch (err) {
+      console.error('Error saving tenant to SQLite:', err);
+      setError('Failed to save tenant.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchTenants();
   }, []);
 
@@ -95,19 +151,9 @@ const TenantsList: React.FC = () => {
       tenant.unit.toLowerCase().includes(searchText.toLowerCase())
   );
 
-  const handleAddTenant = () => {
-    console.log("Add Tenant functionality goes here!");
-    // Implement navigation to a new tenant form or open a modal
-  };
-
   const handleViewDetails = (tenantId: number) => {
     console.log(`View details for tenant ID: ${tenantId}`);
     // Implement navigation to a tenant detail page
-  };
-
-  const handleEditTenant = (tenantId: number) => {
-    console.log(`Edit tenant ID: ${tenantId}`);
-    // Implement navigation to an edit tenant form or open a modal
   };
 
   if (loading) {
@@ -148,7 +194,10 @@ const TenantsList: React.FC = () => {
             />
           </div>
           <button
-            onClick={handleAddTenant}
+            onClick={() => {
+              setSelectedTenant(null); // Clear selected tenant for 'add' mode
+              setShowAddEditTenantModal(true);
+            }}
             className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-md"
           >
             <Plus className="w-4 h-4" />
@@ -162,7 +211,7 @@ const TenantsList: React.FC = () => {
         {filteredTenants.length > 0 ? (
           filteredTenants.map((tenant, index) => (
             <div
-              key={tenant.id + "" + index}
+              key={tenant.id + '' + index}
               className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col justify-between hover:shadow-md transition-shadow duration-200"
             >
               <div>
@@ -177,11 +226,11 @@ const TenantsList: React.FC = () => {
                   </div>
                   <span
                     className={`inline-flex px-3 py-1 rounded-full text-xs font-medium uppercase tracking-wide ${
-                      tenant.status === "Active"
-                        ? "bg-green-100 text-green-800"
-                        : tenant.status === "Moving Out"
-                        ? "bg-yellow-100 text-yellow-800"
-                        : "bg-red-100 text-red-800"
+                      tenant.status === 'Active'
+                        ? 'bg-green-100 text-green-800'
+                        : tenant.status === 'Moving Out'
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : 'bg-red-100 text-red-800'
                     }`}
                   >
                     {tenant.status}
@@ -190,11 +239,11 @@ const TenantsList: React.FC = () => {
 
                 <div className="space-y-2 text-sm text-gray-700">
                   <p>
-                    <span className="font-medium text-gray-800">Email:</span>{" "}
+                    <span className="font-medium text-gray-800">Email:</span>{' '}
                     {tenant.email}
                   </p>
                   <p>
-                    <span className="font-medium text-gray-800">Phone:</span>{" "}
+                    <span className="font-medium text-gray-800">Phone:</span>{' '}
                     {tenant.phone}
                   </p>
                   <p>
@@ -202,7 +251,7 @@ const TenantsList: React.FC = () => {
                     {tenant.rent_amount.toLocaleString()}/month
                   </p>
                   <p>
-                    <span className="font-medium text-gray-800">Lease:</span>{" "}
+                    <span className="font-medium text-gray-800">Lease:</span>{' '}
                     {tenant.leaseStart} to {tenant.leaseEnd}
                   </p>
                 </div>
@@ -216,11 +265,24 @@ const TenantsList: React.FC = () => {
                   View Details
                 </button>
                 <button
-                  onClick={() => handleEditTenant(tenant.id)}
+                  onClick={() => {
+                    setSelectedTenant(tenant); // Set tenant for editing
+                    setShowAddEditTenantModal(true); // Open edit modal
+                  }}
                   className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-200"
                   title="Edit Tenant"
                 >
                   <Edit className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedTenant(tenant); // Set tenant for deletion
+                    setShowDeleteTenantConfirm(true); // Open delete confirmation modal
+                  }}
+                  className="p-2 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200"
+                  title="Delete Tenant"
+                >
+                  <Trash2 className="w-5 h-5" />
                 </button>
               </div>
             </div>
@@ -231,6 +293,20 @@ const TenantsList: React.FC = () => {
           </div>
         )}
       </div>
+
+      <TenantFormModal
+        isOpen={showAddEditTenantModal}
+        onClose={() => setShowAddEditTenantModal(false)}
+        onSave={handleSaveTenant}
+        initialData={selectedTenant}
+      />
+
+      <DeleteConfirmationModal
+        isOpen={showDeleteTenantConfirm}
+        onClose={() => setShowDeleteTenantConfirm(false)}
+        onConfirm={handleDeleteTenant}
+        itemName={selectedTenant?.name || 'this tenant'}
+      />
     </div>
   );
 };
