@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useEffect } from "react";
-import Database from "@tauri-apps/plugin-sql";
+import React, { useState, useMemo, useEffect } from 'react';
+import Database from '@tauri-apps/plugin-sql';
 import {
   DollarSign,
   TrendingUp,
@@ -19,10 +19,11 @@ import {
   MoreHorizontal,
   Edit,
   Trash2,
-} from "lucide-react";
-import { invoke } from "@tauri-apps/api/core";
+} from 'lucide-react';
+import { invoke } from '@tauri-apps/api/core';
+import { ExpenseForm } from './ExpenseForm';
 
-interface Expense {
+export interface Expense {
   id: string;
   amount: number;
   category: string;
@@ -35,76 +36,192 @@ interface Expense {
   vendor: string;
 }
 
+// Define the structure for a new expense form
+export interface NewExpense {
+  amount: number | '';
+  category: string;
+  description: string;
+  date: string;
+  unitId: string;
+  paymentMethod: string;
+  vendor: string;
+}
+
 const ExpensePage: React.FC = () => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState([]);
   const [blocks, setBlocks] = useState([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("All");
-  const [selectedBlock, setSelectedBlock] = useState("All");
-  const [dateRange, setDateRange] = useState("This Month");
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [selectedBlock, setSelectedBlock] = useState('All');
+  const [dateRange, setDateRange] = useState('This Month');
   const [showAddExpense, setShowAddExpense] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [units, setUnits] = useState<
+    { id: string; unit_number: string; block: string }[]
+  >([]);
+  // New state for handling the form data for adding/editing
+  const [currentExpense, setCurrentExpense] = useState<NewExpense | Expense>({
+    amount: '',
+    category: '',
+    description: '',
+    date: new Date().toISOString().split('T')[0], // Default to today's date
+    unitId: '',
+    paymentMethod: '',
+    vendor: '',
+  });
 
-  // useEffect(() => {
-  //   async function fetchData() {
-  //     setLoading(true); // Ensure loading is true at the start of fetch
-  //     setError(null); // Clear any previous errors
+  const [isEditing, setIsEditing] = useState(false); // New state to determine if we are editing or adding
 
-  //     try {
-  //       // Use Promise.all to fetch all data concurrently
-  //       const [categoriesData, blocksData, expensesData] = await Promise.all([
-  //         invoke('get_expense_categories'),
-  //         invoke('get_building_blocks'),
-  //         invoke('get_all_expenses'), // Note: Type assertion '<Expense[]>' is usually handled by TypeScript, not JavaScript
-  //       ]);
+  // Combine data fetching into a single function for easier re-use
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const db = await Database.load('sqlite:test.db');
 
-  //       // Once all promises resolve, update the respective states
-  //       setCategories(categoriesData);
-  //       setBlocks(blocksData);
-  //       setExpenses(expensesData);
-  //     } catch (err) {
-  //       // Consolidated error handling for any failed fetch
-  //       console.error('Failed to load dashboard data:', err);
-  //       setError('Failed to load essential dashboard data. Please try again.');
-  //     } finally {
-  //       setLoading(false); // Set loading to false once all fetches are complete
-  //     }
-  //   }
+      const dbExpenses = await db.select(
+        `SELECT
+            e.id, e.amount, e.category, e.description, e.date,
+            u.id as unitId, u.unit_number as unitName,
+            p.block as blockName,
+            e.payment_method as paymentMethod, e.vendor
+          FROM expenses e
+          LEFT JOIN units u ON e.unit_id = u.id
+          LEFT JOIN properties p ON u.property = p.id;`
+      );
+      setExpenses(dbExpenses);
 
-  //   fetchData(); // Execute the consolidated fetch function
+      const dbUnits = await db.select(
+        `SELECT id, unit_number,block FROM units;`
+      );
+      setUnits(dbUnits);
 
-  //   // The empty dependency array ensures this effect runs only once on component mount.
-  // }, []);
+      const uniqueCategories = [
+        'All',
+        ...new Set(dbExpenses.map((exp: Expense) => exp.category)),
+      ];
+      setCategories(uniqueCategories);
+      const uniqueBlocks = [
+        'All',
+        ...new Set(dbExpenses.map((exp: Expense) => exp.blockName)),
+      ];
+      setBlocks(uniqueBlocks);
+
+      setError('');
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      setError('Failed to get data - check console');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditExpenseSubmit = async (editedExpenseData: Expense) => {
+    try {
+      const db = await Database.load('sqlite:test.db');
+      const result = await db.execute(
+        `UPDATE expenses
+         SET amount = $1, category = $2, description = $3, date = $4, unit_id = $5, payment_method = $6, vendor = $7
+         WHERE id = $8;`,
+        [
+          editedExpenseData.amount,
+          editedExpenseData.category,
+          editedExpenseData.description,
+          editedExpenseData.date,
+          editedExpenseData.unitId,
+          editedExpenseData.paymentMethod,
+          editedExpenseData.vendor,
+          editedExpenseData.id,
+        ]
+      );
+      console.log('Update result:', result);
+
+      await fetchData(); // Re-fetch expenses to update the UI
+      setShowAddExpense(false);
+      setCurrentExpense({
+        // Reset form after submission
+        amount: '',
+        category: '',
+        description: '',
+        date: new Date().toISOString().split('T')[0],
+        unitId: '',
+        paymentMethod: '',
+        vendor: '',
+      });
+      setIsEditing(false); // Exit edit mode
+    } catch (err) {
+      console.error('Error updating expense:', err);
+      setError('Failed to update expense.');
+    }
+  };
+
+  const handleDeleteExpense = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this expense?')) {
+      return;
+    }
+    try {
+      const db = await Database.load('sqlite:test.db');
+      const result = await db.execute(`DELETE FROM expenses WHERE id = $1;`, [
+        id,
+      ]);
+      console.log('Delete result:', result);
+      setExpenses(expenses.filter((expense) => expense.id !== id)); // Optimistic UI update
+      // Or, re-fetch data for a guaranteed fresh state: await fetchData();
+    } catch (err) {
+      console.error('Error deleting expense:', err);
+      setError('Failed to delete expense.');
+    }
+  };
+
+  const handleAddExpenseSubmit = async (newExpenseData: NewExpense) => {
+    try {
+      const db = await Database.load('sqlite:test.db');
+      // Generate a new UUID for the expense ID (you might have a UUID generation utility)
+      const newId = crypto.randomUUID(); // Requires crypto polyfill or similar
+      const result = await db.execute(
+        `INSERT INTO expenses (id, amount, category, description, date, unit_id,unit_name, payment_method, vendor,block_name)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8,$9,$10);`,
+        [
+          newId,
+          newExpenseData.amount,
+          newExpenseData.category,
+          newExpenseData.description,
+          newExpenseData.date,
+          newExpenseData.unitId,
+          units.find((unit) => unit.id === newExpenseData.unitId)
+            ?.unit_number || '',
+          newExpenseData.paymentMethod,
+          newExpenseData.vendor,
+          units.find((unit) => unit.id === newExpenseData.unitId)?.block || '',
+        ]
+      );
+      console.log('Insert result:', result);
+
+      // Re-fetch expenses to update the UI with the new data
+      // Alternatively, optimistically update state if you have all necessary joined data
+      await fetchData(); // Call the combined fetch function
+
+      setShowAddExpense(false);
+      setCurrentExpense({
+        // Reset form after submission
+        amount: '',
+        category: '',
+        description: '',
+        date: new Date().toISOString().split('T')[0],
+        unitId: '',
+        paymentMethod: '',
+        vendor: '',
+      });
+      setIsEditing(false); // Ensure we're not in edit mode after adding
+    } catch (err) {
+      console.error('Error adding expense:', err);
+      setError('Failed to add expense.');
+    }
+  };
 
   useEffect(() => {
-    async function fetchExpenses() {
-      try {
-        setLoading(true);
-        const db = await Database.load("sqlite:test.db");
-        // Adjust column names to match your 'expenses', 'units', and 'properties' table schema
-        const dbExpenses = await db.select(
-          `SELECT
-             e.id, e.amount, e.category, e.description, e.date,
-             u.id as unitId, u.unit_number as unitName,
-             p.block as blockName,
-             e.payment_method as paymentMethod, e.vendor
-           FROM expenses e
-           LEFT JOIN units u ON e.unit_id = u.id
-           LEFT JOIN properties p ON u.property = p.id;`
-        );
-        setError("");
-        setExpenses(dbExpenses);
-        console.log("Expenses fetched successfully:", dbExpenses);
-      } catch (err) {
-        console.error("Error fetching expenses:", err);
-        setError("Failed to get expenses - check console");
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchExpenses();
+    fetchData();
   }, []);
 
   const categoryIcons = {
@@ -125,9 +242,9 @@ const ExpensePage: React.FC = () => {
         expense.vendor?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         expense.unitName.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory =
-        selectedCategory === "All" || expense.category === selectedCategory;
+        selectedCategory === 'All' || expense.category === selectedCategory;
       const matchesBlock =
-        selectedBlock === "All" || expense.blockName === selectedBlock;
+        selectedBlock === 'All' || expense.blockName === selectedBlock;
       return matchesSearch && matchesCategory && matchesBlock;
     });
   }, [expenses, searchTerm, selectedCategory, selectedBlock]);
@@ -173,9 +290,10 @@ const ExpensePage: React.FC = () => {
   const handleAddExpense = () => {
     setShowAddExpense(true);
   };
-
-  const handleDeleteExpense = (id: string) => {
-    setExpenses(expenses.filter((expense) => expense.id !== id));
+  const handleEditExpense = (expense: Expense) => {
+    setCurrentExpense(expense);
+    setIsEditing(true);
+    setShowAddExpense(true);
   };
 
   return (
@@ -232,8 +350,8 @@ const ExpensePage: React.FC = () => {
                   <span
                     className={`text-sm font-medium ${
                       summaryStats.percentageChange >= 0
-                        ? "text-green-600"
-                        : "text-red-600"
+                        ? 'text-green-600'
+                        : 'text-red-600'
                     }`}
                   >
                     {Math.abs(summaryStats.percentageChange).toFixed(1)}%
@@ -437,7 +555,10 @@ const ExpensePage: React.FC = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex items-center justify-end gap-2">
-                          <button className="text-blue-600 hover:text-blue-900 p-1">
+                          <button
+                            className="text-blue-600 hover:text-blue-900 p-1"
+                            onClick={() => handleEditExpense(expense)}
+                          >
                             <Edit className="w-4 h-4" />
                           </button>
                           <button
@@ -457,23 +578,17 @@ const ExpensePage: React.FC = () => {
         </div>
 
         {/* Add Expense Modal would go here */}
+        {/* Add/Edit Expense Modal */}
         {showAddExpense && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Add New Expense
-              </h3>
-              <p className="text-gray-600 mb-4">
-                This would contain the add expense form.
-              </p>
-              <button
-                onClick={() => setShowAddExpense(false)}
-                className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg"
-              >
-                Close
-              </button>
-            </div>
-          </div>
+          <ExpenseForm
+            initialData={isEditing ? (currentExpense as Expense) : undefined}
+            onClose={() => setShowAddExpense(false)}
+            onSubmit={
+              isEditing ? handleEditExpenseSubmit : handleAddExpenseSubmit
+            }
+            categories={categories.filter((c) => c !== 'All')} // Pass actual categories
+            units={units} // Pass fetched units
+          />
         )}
       </div>
     </div>
