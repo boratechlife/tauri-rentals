@@ -33,6 +33,7 @@ import {
   Calendar,
   Ruler,
   Users,
+  Dog,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 
@@ -171,48 +172,59 @@ const Unit = () => {
   // Main state for units and filtered view
   const [units, setUnits] = useState([]);
   const [filteredUnits, setFilteredUnits] = useState([]);
-  const [unitsLoading, setUnitsLoading] = useState(false);
-  const [unitsError, setUnitsError] = useState(null);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  // useEffect(() => {
-  //   async function loadUnits() {
-  //     setUnitsLoading(true);
-  //     setUnitsError(null);
-  //     try {
-  //       // Specify the expected return type for better TypeScript inference
-  //       const data = await invoke<typeof mockUnits>('get_mock_units');
-  //       setUnits(data);
-  //       console.log('Loaded units:', data);
-  //     } catch (err) {
-  //       console.error('Failed to load units:', err);
-  //       setUnitsError('Failed to load units data.');
-  //     } finally {
-  //       setUnitsLoading(false);
-  //     }
-  //   }
-  //   loadUnits();
-  // }, []); // Empty dependency array means this runs once on mount
+
+  // Add new state to track modal mode (add or edit)
+  const [modalMode, setModalMode] = useState("add"); // "add" or "edit"
+  const [editingUnitId, setEditingUnitId] = useState(null); // Track unit ID being edited
 
   useEffect(() => {
     async function fetchUnits() {
+      let db;
       try {
         setLoading(true);
-        const db = await Database.load("sqlite:test.db");
-        // Adjust column names to match your 'units' table schema
-        // amenities and photos might be stored as JSON strings or comma-separated
+        db = await Database.load("sqlite:test.db");
+        await db.execute(`
+        CREATE TABLE IF NOT EXISTS units (
+          id TEXT PRIMARY KEY,
+          unit_number TEXT NOT NULL,
+          property TEXT NOT NULL,
+          block TEXT,
+          floor INTEGER,
+          status TEXT,
+          unit_type TEXT,
+          bedrooms INTEGER,
+          bathrooms INTEGER,
+          square_footage INTEGER,
+          rent REAL,
+          security_deposit REAL,
+          amenities TEXT,
+          photos TEXT,
+          tenant_info_id TEXT,
+          notes TEXT
+        )
+      `);
+        await db.execute(`
+        CREATE TABLE IF NOT EXISTS tenants (
+          id TEXT PRIMARY KEY,
+          tenant_name TEXT,
+          lease_end_date TEXT
+        )
+      `);
         const dbUnits = await db.select(
           `
-     SELECT * FROM units
-     LEFT JOIN tenants ON units.tenant_info_id = tenants.id
-          `
+        SELECT * FROM units
+        LEFT JOIN tenants ON units.tenant_info_id = tenants.id
+        `
         );
-        console.log("Fetched units from database:", dbUnits);
-        // Process data if amenities/photos are stored as JSON strings
         const processedUnits = dbUnits.map((unit) => ({
           ...unit,
-          amenities: unit.amenities,
-          photos: unit.photos,
+          amenities: unit.amenities
+            ? unit.amenities.split(",").filter(Boolean)
+            : [],
+          photos: unit.photos ? unit.photos.split(",").filter(Boolean) : [],
           tenantInfo: unit.tenant_info_id
             ? {
                 id: unit.tenant_info_id,
@@ -224,17 +236,17 @@ const Unit = () => {
 
         setError("");
         setUnits(processedUnits);
-        console.log("Units fetched successfully:", processedUnits);
+        setFilteredUnits(processedUnits);
       } catch (err) {
         console.error("Error fetching units:", err);
         setError("Failed to get units - check console");
       } finally {
         setLoading(false);
+        if (db) await db.close();
       }
     }
     fetchUnits();
   }, []);
-
   // State for search and filters
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("All");
@@ -299,9 +311,144 @@ const Unit = () => {
     setFilteredUnits(currentFilteredUnits);
   }, [searchTerm, filterStatus, filterProperty, filterUnitType, units]);
 
-  // Handle adding a new unit
-  const handleAddUnit = (e) => {
+  const handleSaveUnit = async (unitData) => {
+    let db;
+    try {
+      db = await Database.load("sqlite:test.db");
+      setLoading(true);
+      const existingUnit = await db.select(
+        `SELECT id FROM units WHERE id = $1`,
+        [unitData.id || null]
+      );
+
+      if (existingUnit.length > 0) {
+        await db.execute(
+          `UPDATE units SET unit_number = $1, property = $2, block = $3, floor = $4, status = $5, unit_type = $6, bedrooms = $7, bathrooms = $8, square_footage = $9, rent = $10, security_deposit = $11, amenities = $12, photos = $13, notes = $14, tenant_info_id = $15 WHERE id = $16`,
+          [
+            unitData.unit_number,
+            unitData.property,
+            unitData.block,
+            unitData.floor,
+            unitData.status,
+            unitData.type,
+            unitData.bedrooms,
+            unitData.bathrooms,
+            unitData.squareFootage,
+            unitData.rent,
+            unitData.securityDeposit,
+            unitData?.amenities?.join(",") || "",
+            unitData?.photos?.join(",") || "",
+            unitData.notes,
+            null,
+            unitData.id,
+          ]
+        );
+        console.log("Unit updated successfully:", unitData.id);
+      } else {
+        const newId = `U${String(units.length + 1).padStart(3, "0")}`;
+        await db.execute(
+          `INSERT INTO units (id, unit_number, property, block, floor, status, unit_type, bedrooms, bathrooms, square_footage, rent, security_deposit, amenities, photos, tenant_info_id, notes) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
+          [
+            newId,
+            unitData.unit_number,
+            unitData.property,
+            unitData.block,
+            unitData.floor,
+            unitData.status,
+            unitData.type,
+            unitData.bedrooms,
+            unitData.bathrooms,
+            unitData.squareFootage,
+            unitData.rent,
+            unitData.securityDeposit,
+            unitData?.amenities?.join(",") || "",
+            unitData?.photos?.join(",") || "",
+            null,
+            unitData.notes,
+          ]
+        );
+        console.log("New unit added successfully:", newId);
+      }
+
+      const dbUnits = await db.select(
+        `
+      SELECT * FROM units
+      LEFT JOIN tenants ON units.tenant_info_id = tenants.id
+      `
+      );
+      const processedUnits = dbUnits.map((unit) => ({
+        ...unit,
+        amenities: unit.amenities
+          ? unit.amenities.split(",").filter(Boolean)
+          : [],
+        photos: unit.photos ? unit.photos.split(",").filter(Boolean) : [],
+        tenantInfo: unit.tenant_info_id
+          ? {
+              id: unit.tenant_info_id,
+              name: unit.tenant_name,
+              leaseEndDate: unit.lease_end_date,
+            }
+          : null,
+      }));
+      setUnits(processedUnits);
+      setFilteredUnits(processedUnits);
+      setIsAddUnitModalOpen(false);
+      setNewUnitData({
+        unit_number: "",
+        property: "",
+        block: "",
+        floor: "",
+        status: "Available",
+        type: "",
+        bedrooms: "",
+        bathrooms: "",
+        squareFootage: "",
+        rent: "",
+        securityDeposit: "",
+        amenities: [],
+        photos: [],
+        notes: "",
+      });
+      setError("");
+    } catch (err) {
+      console.error("Error saving unit:", err);
+      setError("Failed to save unit.");
+    } finally {
+      setLoading(false);
+      if (db) await db.close();
+    }
+  };
+
+  const handleUpdateUnit = async (e) => {
     e.preventDefault();
+    const updatedUnit = { ...newUnitData, id: editingUnitId };
+    await handleSaveUnit(updatedUnit);
+    setIsAddUnitModalOpen(false);
+    setNewUnitData({
+      unit_number: "",
+      property: "",
+      block: "",
+      floor: "",
+      status: "Available",
+      type: "",
+      bedrooms: "",
+      bathrooms: "",
+      squareFootage: "",
+      rent: "",
+      securityDeposit: "",
+      amenities: [],
+      photos: [],
+      notes: "",
+    });
+    setEditingUnitId(null);
+    setModalMode("add");
+  };
+
+  // Handle adding a new unit
+  const handleAddUnit = async (e) => {
+    e.preventDefault();
+    console.log("Adding new unit with data:", newUnitData);
+
     const newId = `U${String(units.length + 1).padStart(3, "0")}`;
     const unitWithId = { ...newUnitData, id: newId, tenantInfo: null }; // New units are initially available
     setUnits([...units, unitWithId]);
@@ -322,6 +469,8 @@ const Unit = () => {
       photos: [],
       notes: "",
     });
+    // INSERT INTO UNITS TABLE
+    handleSaveUnit(unitWithId);
   };
 
   // Handle viewing unit details
@@ -332,15 +481,50 @@ const Unit = () => {
 
   // Handle editing a unit (placeholder for now, would open an edit modal)
   const handleEditUnit = (unitId) => {
-    console.log(`Edit unit with ID: ${unitId}`);
-    // In a real app, you would open an edit modal pre-filled with unit data
-    alert(`Editing unit ${unitId}. (Not fully implemented in this demo)`);
+    console.log(`Editing unit with ID: ${unitId}`);
+    const unitToEdit = units.find((unit) => unit.id === unitId);
+    if (unitToEdit) {
+      setNewUnitData({
+        unit_number: unitToEdit.unit_number,
+        property: unitToEdit.property,
+        block: unitToEdit.block,
+        floor: unitToEdit.floor || "",
+        status: unitToEdit.status,
+        type: unitToEdit.type,
+        bedrooms: unitToEdit.bedrooms || "",
+        bathrooms: unitToEdit.bathrooms || "",
+        squareFootage: unitToEdit.squareFootage || "",
+        rent: unitToEdit.rent || "",
+        securityDeposit: unitToEdit.securityDeposit || "",
+        amenities: unitToEdit.amenities || [],
+        photos: unitToEdit.photos || [],
+        notes: unitToEdit.notes || "",
+      });
+      setEditingUnitId(unitId);
+      setModalMode("edit");
+      setIsAddUnitModalOpen(true);
+      console.log(`Opened edit modal for unit ID: ${unitId}`);
+    } else {
+      console.error(`Unit with ID ${unitId} not found`);
+      setError(`Unit with ID ${unitId} not found`);
+    }
   };
 
   // Handle deleting a unit
-  const handleDeleteUnit = (unitId) => {
+  const handleDeleteUnit = async (unitId) => {
     if (window.confirm(`Are you sure you want to delete unit ${unitId}?`)) {
-      setUnits(units.filter((unit) => unit.id !== unitId));
+      try {
+        setLoading(true);
+        const db = await Database.load("sqlite:test.db");
+        await db.execute(`DELETE FROM units WHERE id = $1`, [unitId]);
+        setUnits(units.filter((unit) => unit.id !== unitId));
+        setError("");
+      } catch (err) {
+        console.error("Error deleting unit:", err);
+        setError("Failed to delete unit.");
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -388,7 +572,7 @@ const Unit = () => {
   const modalOverlayClass =
     "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4";
   const modalContentClass =
-    "bg-white p-6 rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto w-full max-w-3xl transform transition-all duration-300 ease-in-out scale-95 opacity-0 data-[state=open]:scale-100 data-[state=open]:opacity-100";
+    "bg-white p-6 rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto w-full max-w-3xl transform transition-all duration-300 ease-in-out scale-95  ";
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans text-gray-900 antialiased p-4 sm:p-6 lg:p-8">
@@ -552,9 +736,9 @@ const Unit = () => {
           </div>
         ) : viewMode === "grid" ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredUnits.map((unit) => (
+            {filteredUnits.map((unit, index) => (
               <div
-                key={unit.id}
+                key={unit.unit_number}
                 className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden transform hover:scale-[1.02] transition duration-200 ease-in-out"
               >
                 {unit.photos && unit.photos.length > 0 && (
@@ -596,11 +780,15 @@ const Unit = () => {
                   <p className="text-sm text-gray-600 flex items-center gap-2 mt-2">
                     <DollarSign className="w-4 h-4" /> Rent: ${unit.rent}/month
                   </p>
-                  {unit.tenantInfo && (
+                  {unit.tenantInfo ? (
                     <p className="text-sm text-gray-600 flex items-center gap-2 mt-2">
                       <Users className="w-4 h-4" /> Tenant:{" "}
                       {unit.tenantInfo.name} (Lease ends:{" "}
                       {unit.tenantInfo.leaseEndDate})
+                    </p>
+                  ) : (
+                    <p className="text-sm text-gray-600 flex items-center gap-2 mt-2">
+                      <Users className="w-4 h-4" /> Tenant: None
                     </p>
                   )}
                 </div>
@@ -726,12 +914,12 @@ const Unit = () => {
       {/* Add New Unit Modal */}
       {isAddUnitModalOpen && (
         <div className={modalOverlayClass} data-state="open">
-          <div className={modalContentClass} role="dialog" aria-modal="true">
+          <div className={modalContentClass}>
             <h2 className="text-2xl font-bold mb-6 text-gray-900">
-              Add New Unit
+              {modalMode === "edit" ? "Edit Unit" : "Add New Unit"}
             </h2>
             <form
-              onSubmit={handleAddUnit}
+              onSubmit={modalMode === "edit" ? handleUpdateUnit : handleAddUnit}
               className="grid grid-cols-1 md:grid-cols-2 gap-6"
             >
               {/* Unit Identification */}
@@ -823,6 +1011,28 @@ const Unit = () => {
                 </div>
               </div>
 
+              <div>
+                <label
+                  htmlFor="status"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Status <span className="text-red-500">*</span>
+                </label>
+                <select
+                  id="status"
+                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  value={newUnitData.status}
+                  onChange={(e) =>
+                    setNewUnitData({ ...newUnitData, status: e.target.value })
+                  }
+                  required
+                >
+                  <option value="Available">Available</option>
+                  <option value="Occupied">Occupied</option>
+                  <option value="Maintenance">Maintenance</option>
+                  <option value="Reserved">Reserved</option>
+                </select>
+              </div>
               {/* Unit Details */}
               <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -959,7 +1169,7 @@ const Unit = () => {
                   type="text"
                   id="photos"
                   className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  value={newUnitData.photos.join(", ")}
+                  value={newUnitData.photos.join(",")}
                   onChange={(e) =>
                     setNewUnitData({
                       ...newUnitData,
