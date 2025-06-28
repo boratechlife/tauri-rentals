@@ -1,29 +1,29 @@
-// ... (existing interfaces and in-memory data setup)
-
 import { X } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Tenant } from './Tenants';
+import Database from '@tauri-apps/plugin-sql';
 
-// Initial form state for adding/editing tenants - NEW
-const initialTenantFormState: Omit<Tenant, 'id'> = {
-  name: '',
+// Initial form state for adding/editing tenants
+const initialTenantFormState: Omit<Tenant, 'tenant_id'> = {
+  full_name: '',
   email: '',
-  phone: '',
-  status: 'Active',
-  unit: '',
-  property: '',
+  phone_number: '',
+  status: 'active', // Updated to match schema default
+  unit_id: null, // Nullable foreign key to units
   rent_amount: 0,
-  leaseStart: '',
-  leaseEnd: '',
+  lease_start_date: '',
+  lease_end_date: '',
+  unit_number: undefined, // Derived, not editable
+  property_name: undefined, // Derived, not editable
 };
 
 // ---
-// TenantFormModal Component (for Add/Edit) - NEW
+// TenantFormModal Component (for Add/Edit)
 // ---
 interface TenantFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (tenant: Omit<Tenant, 'id'> | Tenant) => void;
+  onSave: (tenant: Omit<Tenant, 'tenant_id'> | Tenant) => void;
   initialData?: Tenant | null;
 }
 
@@ -33,25 +33,46 @@ export const TenantFormModal: React.FC<TenantFormModalProps> = ({
   onSave,
   initialData,
 }) => {
-  const [formData, setFormData] = useState<Omit<Tenant, 'id'> | Tenant>(
-    initialData || initialTenantFormState
+  const [formData, setFormData] = useState<Omit<Tenant, 'tenant_id'> | Tenant>(
+    initialTenantFormState
   );
+  const [units, setUnits] = useState<
+    { unit_id: number; unit_number: string }[]
+  >([]);
 
   useEffect(() => {
     setFormData(initialData || initialTenantFormState);
   }, [initialData]);
 
+  // Fetch units for the dropdown
+  useEffect(() => {
+    async function fetchUnits() {
+      try {
+        const db = await Database.load('sqlite:test4.db');
+        const dbUnits = await db.select(`
+          SELECT unit_id, unit_number 
+          FROM units
+        `);
+        setUnits(dbUnits);
+      } catch (err) {
+        console.error('Error fetching units:', err);
+      }
+    }
+    if (isOpen) fetchUnits();
+  }, [isOpen]);
+
   const handleChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-    >
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
     setFormData((prevData) => ({
       ...prevData,
-      lease_start: name === 'leaseStart' ? value : prevData.leaseStart,
-      lease_end: name === 'leaseEnd' ? value : prevData.leaseEnd,
-      [name]: name === 'rent_amount' ? parseFloat(value) : value,
+      [name]:
+        name === 'rent_amount'
+          ? parseFloat(value) || 0
+          : name === 'unit_id'
+          ? parseInt(value) || null
+          : value,
     }));
   };
 
@@ -79,16 +100,16 @@ export const TenantFormModal: React.FC<TenantFormModalProps> = ({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label
-              htmlFor="name"
+              htmlFor="full_name"
               className="block text-sm font-medium text-gray-700"
             >
               Tenant Name
             </label>
             <input
               type="text"
-              id="name"
-              name="name"
-              value={formData.name}
+              id="full_name"
+              name="full_name"
+              value={formData.full_name}
               onChange={handleChange}
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               required
@@ -105,24 +126,23 @@ export const TenantFormModal: React.FC<TenantFormModalProps> = ({
               type="email"
               id="email"
               name="email"
-              value={formData.email}
+              value={formData.email || ''}
               onChange={handleChange}
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              required
             />
           </div>
           <div>
             <label
-              htmlFor="phone"
+              htmlFor="phone_number"
               className="block text-sm font-medium text-gray-700"
             >
               Phone
             </label>
             <input
               type="tel"
-              id="phone"
-              name="phone"
-              value={formData.phone}
+              id="phone_number"
+              name="phone_number"
+              value={formData.phone_number || ''}
               onChange={handleChange}
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               required
@@ -130,37 +150,26 @@ export const TenantFormModal: React.FC<TenantFormModalProps> = ({
           </div>
           <div>
             <label
-              htmlFor="unit"
+              htmlFor="unit_id"
               className="block text-sm font-medium text-gray-700"
             >
-              Unit Number
+              Unit
             </label>
-            <input
-              type="text"
-              id="unit"
-              name="unit"
-              value={formData.unit}
+            <select
+              id="unit_id"
+              name="unit_id"
+              value={formData.unit_id || ''}
               onChange={handleChange}
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               required
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="property"
-              className="block text-sm font-medium text-gray-700"
             >
-              Property Name
-            </label>
-            <input
-              type="text"
-              id="property"
-              name="property"
-              value={formData.property}
-              onChange={handleChange}
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              required
-            />
+              <option value="">Select Unit</option>
+              {units.map((unit) => (
+                <option key={unit.unit_id} value={unit.unit_id}>
+                  {unit.unit_number}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <label
@@ -173,7 +182,7 @@ export const TenantFormModal: React.FC<TenantFormModalProps> = ({
               type="number"
               id="rent_amount"
               name="rent_amount"
-              value={formData.rent_amount}
+              value={formData.rent_amount || 0}
               onChange={handleChange}
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               required
@@ -182,16 +191,16 @@ export const TenantFormModal: React.FC<TenantFormModalProps> = ({
           </div>
           <div>
             <label
-              htmlFor="lease_start"
+              htmlFor="lease_start_date"
               className="block text-sm font-medium text-gray-700"
             >
               Lease Start Date
             </label>
             <input
               type="date"
-              id="leaseStart"
-              name="leaseStart"
-              value={formData.leaseStart || formData?.lease_start}
+              id="lease_start_date"
+              name="lease_start_date"
+              value={formData.lease_start_date || ''}
               onChange={handleChange}
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               required
@@ -199,16 +208,16 @@ export const TenantFormModal: React.FC<TenantFormModalProps> = ({
           </div>
           <div>
             <label
-              htmlFor="leaseEnd"
+              htmlFor="lease_end_date"
               className="block text-sm font-medium text-gray-700"
             >
               Lease End Date
             </label>
             <input
               type="date"
-              id="leaseEnd"
-              name="leaseEnd"
-              value={formData.leaseEnd || formData?.lease_end}
+              id="lease_end_date"
+              name="lease_end_date"
+              value={formData.lease_end_date || ''}
               onChange={handleChange}
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               required
@@ -229,7 +238,7 @@ export const TenantFormModal: React.FC<TenantFormModalProps> = ({
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               required
             >
-              <option value="Active">Active</option>
+              <option value="active">Active</option>
               <option value="Moving Out">Moving Out</option>
               <option value="Inactive">Inactive</option>
             </select>
