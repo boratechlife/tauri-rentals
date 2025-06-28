@@ -62,7 +62,7 @@ const PropertyManagementDashboard: React.FC = () => {
   async function fetchPayments() {
     try {
       setLoading(true);
-      const db = await Database.load('sqlite:test3.db');
+      const db = await Database.load('sqlite:test4.db');
       // Assuming your payments table has these columns
       const dbPayments = await db.select(
         `SELECT id, tenant, unit, property, amount, date, due_date, status, method, category FROM payments`
@@ -85,7 +85,7 @@ const PropertyManagementDashboard: React.FC = () => {
       return;
     }
     setLoading(true);
-    const db = await Database.load('sqlite:test3.db');
+    const db = await Database.load('sqlite:test4.db');
     try {
       await db.execute(`DELETE FROM payments WHERE id = $1`, [
         selectedPayment.id,
@@ -106,7 +106,7 @@ const PropertyManagementDashboard: React.FC = () => {
   const handleSavePayment = async (
     paymentData: Omit<Payment, 'id'> | Payment
   ) => {
-    const db = await Database.load('sqlite:test3.db');
+    const db = await Database.load('sqlite:test4.db');
     setLoading(true);
     try {
       if ('id' in paymentData && paymentData.id !== null) {

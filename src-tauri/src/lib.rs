@@ -282,7 +282,7 @@ pub fn run() {
             description: "create_managers_table_and_seed_data",
             sql: "
                 CREATE TABLE IF NOT EXISTS managers (
-                    id INTEGER PRIMARY KEY  AUTOINCREMENT,
+                    manager_id INTEGER PRIMARY KEY  AUTOINCREMENT,
                     name TEXT NOT NULL,
                     email TEXT ,
                     phone TEXT NOT NULL,
@@ -292,13 +292,32 @@ pub fn run() {
             ",
             kind: MigrationKind::Up,
         },
+        // ---------------------------------------------------------------------
+        // Migration 11: seed managers table and seed data
+        // Title: seed Managers Table
+        // Table Name: managers
+        // Columns: id (TEXT PRIMARY KEY), name (TEXT NOT NULL), email (TEXT NOT NULL), phone (TEXT NOT NULL), hire_date (TEXT NOT NULL)
+        // ---------------------------------------------------------------------
+        Migration {
+    version: 12, // <-- Increment this version number
+    description: "seed_managers_table",
+    sql: "
+        -- Seed data for the managers table
+-- Seed data for the managers table
+INSERT INTO managers (name, email, phone, hire_date) VALUES
+('Alice Johnson', 'alice.j@example.com', '111-222-3333', '2023-01-15'),
+('Bob Smith', 'bob.s@example.com', '444-555-6666', '2022-07-01'),
+('Carol White', 'carol.w@example.com', '777-888-9999', '2024-03-20');
+    ",
+    kind: MigrationKind::Up, // This is an "Up" migration to apply changes
+},
     ];
 
     tauri::Builder::default()
         .plugin(tauri_plugin_sql::Builder::new().build())
         .plugin(
             SqlBuilder::default() // Use our aliased Builder
-                .add_migrations("sqlite:test3.db", migrations) // 'test3.db' is our database file
+                .add_migrations("sqlite:test4.db", migrations) // 'test4.db' is our database file
                 .build(),
         )
         .plugin(tauri_plugin_opener::init())

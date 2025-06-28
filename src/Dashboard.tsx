@@ -16,6 +16,23 @@ type StatsCard = {
   icon: React.ElementType;
   color: string;
 };
+type Payment = {
+  payment_id: string;
+  tenant_id: string;
+  unit_id: string;
+  property_id: string;
+  amount_paid: number;
+  payment_date: string;
+  due_date: string;
+  payment_status: string;
+  payment_method: string;
+  payment_category: string;
+  receipt_number?: string;
+  transaction_reference?: string;
+  remarks?: string;
+  created_at: string;
+  updated_at: string;
+};
 
 const PropertyManagerDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -31,7 +48,7 @@ const PropertyManagerDashboard = () => {
 
   async function getUsers() {
     try {
-      const db = await Database.load('sqlite:test3.db');
+      const db = await Database.load('sqlite:test.db');
       const dbUsers = await db.select<User[]>('SELECT * FROM users');
 
       setError('');
@@ -45,15 +62,16 @@ const PropertyManagerDashboard = () => {
   }
 
   async function fetchStats() {
-    const db = await Database.load('sqlite:test3.db');
+    const db = await Database.load('sqlite:test4.db');
     try {
       const results = await db.select(`
       SELECT 
         (SELECT COUNT(*) FROM properties) as totalProperties,
         (SELECT COUNT(*) FROM tenants WHERE status = 'Active') as totalTenants,
-        (SELECT COUNT(*) FROM payments WHERE status = 'Paid') as totalPayments,
-        (SELECT AVG(rent) FROM units) as averageRent,
-        (SELECT SUM(amount) FROM expenses) as totalExpenses
+        (SELECT COUNT(*) FROM payments WHERE payment_status = 'Paid') as totalPayments,
+        (SELECT AVG(monthly_rent) FROM units) as averageRent,
+        (SELECT SUM(amount) FROM expenses) as totalExpenses,
+        (SELECT COUNT(*) FROM managers) as totalManagers
     `);
       return results[0];
     } catch (err) {
@@ -71,7 +89,7 @@ const PropertyManagerDashboard = () => {
   useEffect(() => {
     async function loadTasks() {
       try {
-        const db = await Database.load('sqlite:test3.db');
+        const db = await Database.load('sqlite:test.db');
         const data = await db.select(
           `SELECT task_name as task, due_date as due, priority FROM tasks  ORDER BY due_date ASC LIMIT 5;`
         );
@@ -90,8 +108,8 @@ const PropertyManagerDashboard = () => {
     // Define an async function that will fetch all data
 
     async function fetchData() {
+      const db = await Database.load('sqlite:test.db');
       try {
-        const db = await Database.load('sqlite:test3.db');
         const [activitiesData, statsData] = await Promise.all([
           db.select(
             `SELECT activity_type as activityType, message, time FROM recent_activities ORDER BY time DESC LIMIT 10;`
@@ -123,17 +141,28 @@ const PropertyManagerDashboard = () => {
           },
           {
             title: 'Average Rent',
-            value: `Kes${statsData.averageRent?.toFixed(2) || 0.0}`,
+            value: `Kes${
+              (statsData.averageRent as number)?.toFixed(2) || '0.00'
+            }`,
             change: '+1.2%',
             icon: TrendingUp,
             color: '#8B5CF6',
           },
           {
             title: 'Total Expenses',
-            value: `Kes${statsData.totalExpenses?.toFixed(2) || 0.0}`,
+            value: `Kes${
+              (statsData.totalExpenses as number)?.toFixed(2) || '0.00'
+            }`,
             change: '-0.5%',
             icon: AlertCircle,
             color: '#EF4444',
+          },
+          {
+            title: 'Total Managers',
+            value: statsData.totalManagers || 0,
+            change: '+1.0%',
+            icon: Users,
+            color: '#6B7280',
           },
         ];
 

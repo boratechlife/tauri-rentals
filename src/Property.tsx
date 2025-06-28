@@ -16,7 +16,19 @@ import {
   Home,
   Calendar,
 } from 'lucide-react';
-import { invoke } from '@tauri-apps/api/core';
+
+type Property = {
+  property_id: number;
+  name: string;
+  address: string;
+  total_units: number;
+  property_type: string;
+  status: string;
+  last_inspection: string | null;
+  manager_id: number;
+  created_at: string;
+  updated_at: string;
+};
 
 const PropertiesPage = () => {
   const [viewMode, setViewMode] = useState('grid');
@@ -25,7 +37,7 @@ const PropertiesPage = () => {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedType, setSelectedType] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
-  const [properties, setProperties] = useState([]);
+  const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [blocks, setBlocks] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -60,18 +72,16 @@ const PropertiesPage = () => {
     overflowY: 'auto',
   };
   const [formData, setFormData] = useState({
+    property_id: 0,
     name: '',
     address: '',
-    block: 'Block A',
-    totalUnits: 0,
-    occupiedUnits: 0,
-    vacantUnits: 0,
-    monthlyRent: 0,
-    propertyType: 'Apartment',
-    status: 'Active',
-    image: '',
-    lastInspection: '',
-    manager: '',
+    total_units: 0,
+    property_type: '',
+    status: 'active',
+    last_inspection: '',
+    manager_id: 0,
+    created_at: '',
+    updated_at: '',
   });
 
   const handleInputChange = (e) => {
@@ -82,19 +92,10 @@ const PropertiesPage = () => {
     async function fetchProperties() {
       try {
         setLoading(true);
-        const db = await Database.load('sqlite:test3.db');
+        const db = await Database.load('sqlite:test4.db');
         // Adjust column names to match your 'properties' and 'units' table schema
-        const dbProperties = await db.select(
-          `SELECT
-             p.id, p.name, p.address, p.block,
-             COUNT(u.id) as totalUnits,
-             SUM(CASE WHEN u.status = 'Occupied' THEN 1 ELSE 0 END) as occupiedUnits,
-             SUM(CASE WHEN u.status = 'Vacant' THEN 1 ELSE 0 END) as vacantUnits,
-             SUM(u.rent) as monthlyRent,
-             p.property_type as propertyType, p.status, p.last_inspection as lastInspection, p.manager, p.image
-           FROM properties p
-           LEFT JOIN units u ON p.id = u.property
-           GROUP BY p.id, p.name, p.address, p.block, p.property_type, p.status, p.last_inspection, p.manager, p.image;`
+        const dbProperties = await db.select<Property[]>(
+          `SELECT property_id, name, address, total_units, property_type, status, last_inspection, manager_id, created_at, updated_at FROM properties`
         );
         setError('');
         setProperties(dbProperties);
@@ -109,26 +110,21 @@ const PropertiesPage = () => {
     fetchProperties();
   }, []);
 
-  const statuses = ['all', 'Active', 'Maintenance', 'Vacant'];
+  const statuses = ['all', 'active', 'maintenance'];
 
   // Filter properties based on search and filters
   const filteredProperties = useMemo(() => {
     return properties.filter((property) => {
       const matchesSearch =
         property.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        property.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        property.manager.toLowerCase().includes(searchTerm.toLowerCase());
-
-      const matchesBlock =
-        selectedBlock === 'all' || property.block === selectedBlock;
+        property.address.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesStatus =
         selectedStatus === 'all' || property.status === selectedStatus;
       const matchesType =
-        selectedType === 'all' || property.type === selectedType;
-
-      return matchesSearch && matchesBlock && matchesStatus && matchesType;
+        selectedType === 'all' || property.property_type === selectedType;
+      return matchesSearch && matchesStatus && matchesType;
     });
-  }, [searchTerm, selectedBlock, selectedStatus, selectedType]);
+  }, [searchTerm, selectedStatus, selectedType, properties]);
 
   const styles = {
     container: {
@@ -442,13 +438,15 @@ const PropertiesPage = () => {
   const handleConfirmDelete = async () => {
     let db;
     try {
-      db = await Database.load('sqlite:test3.db');
+      db = await Database.load('sqlite:test4.db');
       setLoading(true);
-      await db.execute(`DELETE FROM properties WHERE id = $1`, [
+      await db.execute(`DELETE FROM properties WHERE property_id = $1`, [
         deletingPropertyId,
       ]);
       console.log('Property deleted successfully:', deletingPropertyId);
-      setProperties(properties.filter((p) => p.id !== deletingPropertyId));
+      setProperties(
+        properties.filter((p) => p.property_id !== deletingPropertyId)
+      );
       setDeleteMode(false);
       setDeletingPropertyId(null);
       setError('');
@@ -462,8 +460,21 @@ const PropertiesPage = () => {
   };
 
   const handleEditProperty = (id) => {
-    const property = properties.find((p) => p.id === id);
-    setFormData(property);
+    const property = properties.find((p) => p.property_id === id);
+    setFormData(
+      property || {
+        property_id: 0,
+        name: '',
+        address: '',
+        total_units: 0,
+        property_type: '',
+        status: 'active',
+        last_inspection: '',
+        manager_id: 0,
+        created_at: '',
+        updated_at: '',
+      }
+    );
     setEditingPropertyId(id);
     setEditMode(true);
     setIsFormModalOpen(true);
@@ -471,56 +482,46 @@ const PropertiesPage = () => {
   const handleSubmit = async () => {
     let db;
     try {
-      db = await Database.load('sqlite:test3.db');
+      db = await Database.load('sqlite:test4.db');
       setLoading(true);
       const existingProperty = await db.select(
-        `SELECT id FROM properties WHERE id = $1`,
-        [editMode ? formData.id : null]
+        `SELECT property_id FROM properties WHERE property_id = $1`,
+        [editMode ? formData.property_id : null]
       );
 
       if (editMode && existingProperty.length > 0) {
         await db.execute(
-          `UPDATE properties SET name = $1, address = $2, block = $3, total_units = $4, occupied_units = $5, vacant_units = $6, monthly_rent = $7, property_type = $8, status = $9, image = $10, last_inspection = $11, manager = $12 WHERE id = $13`,
+          `UPDATE properties SET name = $1, address = $2, total_units = $3, property_type = $4, status = $5, last_inspection = $6, manager_id = $7, updated_at = $8 WHERE property_id = $9`,
           [
             formData.name,
             formData.address,
-            formData.block,
-            formData.totalUnits,
-            formData.occupiedUnits,
-            formData.vacantUnits,
-            formData.monthlyRent,
-            formData.propertyType,
+            formData.total_units,
+            formData.property_type,
             formData.status,
-            formData.image,
-            formData.lastInspection,
-            formData.manager,
-            formData.id,
+            formData.last_inspection,
+            formData.manager_id,
+            new Date().toISOString(),
+            formData.property_id,
           ]
         );
-        console.log('Property updated successfully:', formData.id);
       } else {
         const newId = String(properties.length + 1);
         await db.execute(
-          `INSERT INTO properties (id, name, address, block, total_units, occupied_units, vacant_units, monthly_rent, property_type, status, image, last_inspection, manager) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+          `INSERT INTO properties (property_id, name, address, total_units, property_type, status, last_inspection, manager_id, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
           [
             newId,
             formData.name,
             formData.address,
-            formData.block,
-            formData.totalUnits,
-            formData.occupiedUnits,
-            formData.vacantUnits,
-            formData.monthlyRent,
-            formData.propertyType,
+            formData.total_units,
+            formData.property_type,
             formData.status,
-            formData.image,
-            formData.lastInspection,
-            formData.manager,
+            formData.last_inspection,
+            formData.manager_id,
+            new Date().toISOString(),
+            new Date().toISOString(),
           ]
         );
-        console.log('New property added successfully:', newId);
       }
-
       const dbProperties = await db.select(`SELECT * FROM properties`);
       setProperties(dbProperties);
       setIsFormModalOpen(false);
@@ -622,7 +623,7 @@ const PropertiesPage = () => {
             </button>
             <button
               style={styles.actionButton}
-              onClick={() => handleEditProperty(property.id)}
+              onClick={() => handleEditProperty(property.property_id)}
               onMouseEnter={(e) => (e.target.style.backgroundColor = '#E5E7EB')}
               onMouseLeave={(e) => (e.target.style.backgroundColor = '#F3F4F6')}
             >
@@ -630,7 +631,7 @@ const PropertiesPage = () => {
             </button>
             <button
               style={styles.actionButton}
-              onClick={() => handleDeleteProperty(property.id)}
+              onClick={() => handleDeleteProperty(property.property_id)}
               onMouseEnter={(e) => (e.target.style.backgroundColor = '#E5E7EB')}
               onMouseLeave={(e) => (e.target.style.backgroundColor = '#F3F4F6')}
             >
@@ -672,25 +673,9 @@ const PropertiesPage = () => {
           <span style={getStatusStyle(property.status)}>{property.status}</span>
         </div>
         <div style={styles.listStats}>
-          <div>
-            <strong>{property.totalUnits}</strong> Total Units
-          </div>
-          <div>
-            <strong>{property.occupiedUnits}</strong> Occupied
-          </div>
-          <div>
-            <strong>{property.vacantUnits}</strong> Vacant
-          </div>
-        </div>
-        <div style={styles.listStats}>
-          <div>{property.block}</div>
-          <div>{property.type}</div>
-          <div>${property.monthly_rent}/month</div>
-        </div>
-        <div style={styles.listStats}>
-          <div>Manager: {property.manager}</div>
-          <div>Last Inspection:</div>
-          <div>{property.lastInspection}</div>
+          <div>Total Units: {property.total_units}</div>
+          <div>Manager ID: {property.manager_id}</div>
+          <div>Last Inspection: {property.last_inspection || 'N/A'}</div>
         </div>
         <div style={styles.propertyActions}>
           <button
@@ -702,6 +687,7 @@ const PropertiesPage = () => {
           </button>
           <button
             style={styles.actionButton}
+            onClick={() => handleEditProperty(property.property_id)}
             onMouseEnter={(e) => (e.target.style.backgroundColor = '#E5E7EB')}
             onMouseLeave={(e) => (e.target.style.backgroundColor = '#F3F4F6')}
           >
@@ -709,16 +695,16 @@ const PropertiesPage = () => {
           </button>
           <button
             style={styles.actionButton}
+            onClick={() => handleDeleteProperty(property.property_id)}
             onMouseEnter={(e) => (e.target.style.backgroundColor = '#E5E7EB')}
             onMouseLeave={(e) => (e.target.style.backgroundColor = '#F3F4F6')}
           >
-            <Settings size={16} />
+            <Trash2 size={16} />
           </button>
         </div>
       </div>
     </div>
   );
-
   return (
     <div style={styles.container}>
       {/* Header */}
@@ -873,20 +859,32 @@ const PropertiesPage = () => {
           <div style={styles.propertiesGrid}>
             {searchTerm.length > 0
               ? filteredProperties.map((property) => (
-                  <PropertyCardView key={property.id} property={property} />
+                  <PropertyCardView
+                    key={property.property_id}
+                    property={property}
+                  />
                 ))
               : properties.map((property) => (
-                  <PropertyCardView key={property.id} property={property} />
+                  <PropertyCardView
+                    key={property.property_id}
+                    property={property}
+                  />
                 ))}
           </div>
         ) : (
           <div style={styles.propertiesList}>
             {searchTerm.length > 0
               ? filteredProperties.map((property) => (
-                  <PropertyCardView key={property.id} property={property} />
+                  <PropertyCardView
+                    key={property.property_id}
+                    property={property}
+                  />
                 ))
               : properties.map((property) => (
-                  <PropertyCardView key={property.id} property={property} />
+                  <PropertyCardView
+                    key={property.property_id}
+                    property={property}
+                  />
                 ))}
           </div>
         )}
@@ -966,27 +964,6 @@ const PropertiesPage = () => {
                 }}
               />
               <label
-                htmlFor="block"
-                style={{ ...styles.filterLabel, marginBottom: '4px' }}
-              >
-                Block
-              </label>
-              <select
-                id="block"
-                name="block"
-                value={formData.block}
-                onChange={handleInputChange}
-                style={{
-                  ...styles.filterSelect,
-                  width: '100%',
-                  marginBottom: '12px',
-                }}
-              >
-                <option value="Block A">Block A</option>
-                <option value="Block B">Block B</option>
-                <option value="Block C">Block C</option>
-              </select>
-              <label
                 htmlFor="totalUnits"
                 style={{ ...styles.filterLabel, marginBottom: '4px' }}
               >
@@ -994,68 +971,11 @@ const PropertiesPage = () => {
               </label>
               <input
                 id="totalUnits"
-                name="totalUnits"
+                name="total_units"
                 type="number"
-                value={formData.totalUnits}
+                value={formData.total_units}
                 onChange={handleInputChange}
                 placeholder="Total Units"
-                style={{
-                  ...styles.filterSelect,
-                  width: '100%',
-                  marginBottom: '12px',
-                }}
-              />
-              <label
-                htmlFor="occupiedUnits"
-                style={{ ...styles.filterLabel, marginBottom: '4px' }}
-              >
-                Occupied Units
-              </label>
-              <input
-                id="occupiedUnits"
-                name="occupiedUnits"
-                type="number"
-                value={formData.occupiedUnits}
-                onChange={handleInputChange}
-                placeholder="Occupied Units"
-                style={{
-                  ...styles.filterSelect,
-                  width: '100%',
-                  marginBottom: '12px',
-                }}
-              />
-              <label
-                htmlFor="vacantUnits"
-                style={{ ...styles.filterLabel, marginBottom: '4px' }}
-              >
-                Vacant Units
-              </label>
-              <input
-                id="vacantUnits"
-                name="vacantUnits"
-                type="number"
-                value={formData.vacantUnits}
-                onChange={handleInputChange}
-                placeholder="Vacant Units"
-                style={{
-                  ...styles.filterSelect,
-                  width: '100%',
-                  marginBottom: '12px',
-                }}
-              />
-              <label
-                htmlFor="monthlyRent"
-                style={{ ...styles.filterLabel, marginBottom: '4px' }}
-              >
-                Monthly Rent
-              </label>
-              <input
-                id="monthlyRent"
-                name="monthlyRent"
-                type="number"
-                value={formData.monthlyRent}
-                onChange={handleInputChange}
-                placeholder="Monthly Rent"
                 style={{
                   ...styles.filterSelect,
                   width: '100%',
@@ -1068,23 +988,18 @@ const PropertiesPage = () => {
               >
                 Property Type
               </label>
-              <select
+              <input
                 id="propertyType"
-                name="propertyType"
-                value={formData.propertyType}
+                name="property_type"
+                value={formData.property_type}
                 onChange={handleInputChange}
+                placeholder="Property Type"
                 style={{
                   ...styles.filterSelect,
                   width: '100%',
                   marginBottom: '12px',
                 }}
-              >
-                <option value="Apartment">Apartment</option>
-                <option value="Townhouse">Townhouse</option>
-                <option value="House">House</option>
-                <option value="Studio">Studio</option>
-                <option value="Villa">Villa</option>
-              </select>
+              />
               <label
                 htmlFor="status"
                 style={{ ...styles.filterLabel, marginBottom: '4px' }}
@@ -1102,28 +1017,9 @@ const PropertiesPage = () => {
                   marginBottom: '12px',
                 }}
               >
-                <option value="Active">Active</option>
-                <option value="Maintenance">Maintenance</option>
-                <option value="Vacant">Vacant</option>
+                <option value="active">Active</option>
+                <option value="maintenance">Maintenance</option>
               </select>
-              <label
-                htmlFor="image"
-                style={{ ...styles.filterLabel, marginBottom: '4px' }}
-              >
-                Image URL
-              </label>
-              <input
-                id="image"
-                name="image"
-                value={formData.image}
-                onChange={handleInputChange}
-                placeholder="Image URL"
-                style={{
-                  ...styles.filterSelect,
-                  width: '100%',
-                  marginBottom: '12px',
-                }}
-              />
               <label
                 htmlFor="lastInspection"
                 style={{ ...styles.filterLabel, marginBottom: '4px' }}
@@ -1132,9 +1028,9 @@ const PropertiesPage = () => {
               </label>
               <input
                 id="lastInspection"
-                name="lastInspection"
+                name="last_inspection"
                 type="date"
-                value={formData.lastInspection}
+                value={formData.last_inspection || ''}
                 onChange={handleInputChange}
                 style={{
                   ...styles.filterSelect,
@@ -1143,17 +1039,18 @@ const PropertiesPage = () => {
                 }}
               />
               <label
-                htmlFor="manager"
+                htmlFor="managerId"
                 style={{ ...styles.filterLabel, marginBottom: '4px' }}
               >
-                Manager
+                Manager ID
               </label>
               <input
-                id="manager"
-                name="manager"
-                value={formData.manager}
+                id="managerId"
+                name="manager_id"
+                type="number"
+                value={formData.manager_id}
                 onChange={handleInputChange}
-                placeholder="Manager"
+                placeholder="Manager ID"
                 style={{
                   ...styles.filterSelect,
                   width: '100%',
