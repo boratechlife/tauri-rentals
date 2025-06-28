@@ -30,7 +30,54 @@ const PropertiesPage = () => {
   const [blocks, setBlocks] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [types, setTypes] = useState([]); //
+  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [editingPropertyId, setEditingPropertyId] = useState<string | null>(
+    null
+  );
+  const [deleteMode, setDeleteMode] = useState(false);
+  const [deletingPropertyId, setDeletingPropertyId] = useState(null);
 
+  const modalOverlayStyle = {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    display: isFormModalOpen ? 'flex' : 'none',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  };
+
+  const modalContentStyle = {
+    backgroundColor: '#FFFFFF',
+    padding: '24px',
+    borderRadius: '12px',
+    width: '500px',
+    maxHeight: '80vh',
+    overflowY: 'auto',
+  };
+  const [formData, setFormData] = useState({
+    name: '',
+    address: '',
+    block: 'Block A',
+    totalUnits: 0,
+    occupiedUnits: 0,
+    vacantUnits: 0,
+    monthlyRent: 0,
+    propertyType: 'Apartment',
+    status: 'Active',
+    image: '',
+    lastInspection: '',
+    manager: '',
+  });
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
   useEffect(() => {
     async function fetchProperties() {
       try {
@@ -390,6 +437,118 @@ const PropertiesPage = () => {
     },
   };
 
+  const handleCloseModal = () => setIsFormModalOpen(false);
+
+  const handleConfirmDelete = async () => {
+    let db;
+    try {
+      db = await Database.load('sqlite:test.db');
+      setLoading(true);
+      await db.execute(`DELETE FROM properties WHERE id = $1`, [
+        deletingPropertyId,
+      ]);
+      console.log('Property deleted successfully:', deletingPropertyId);
+      setProperties(properties.filter((p) => p.id !== deletingPropertyId));
+      setDeleteMode(false);
+      setDeletingPropertyId(null);
+      setError('');
+    } catch (err) {
+      console.error('Error deleting property:', err);
+      setError('Failed to delete property');
+    } finally {
+      setLoading(false);
+      if (db) await db.close();
+    }
+  };
+
+  const handleEditProperty = (id) => {
+    const property = properties.find((p) => p.id === id);
+    setFormData(property);
+    setEditingPropertyId(id);
+    setEditMode(true);
+    setIsFormModalOpen(true);
+  };
+  const handleSubmit = async () => {
+    let db;
+    try {
+      db = await Database.load('sqlite:test.db');
+      setLoading(true);
+      const existingProperty = await db.select(
+        `SELECT id FROM properties WHERE id = $1`,
+        [editMode ? formData.id : null]
+      );
+
+      if (editMode && existingProperty.length > 0) {
+        await db.execute(
+          `UPDATE properties SET name = $1, address = $2, block = $3, total_units = $4, occupied_units = $5, vacant_units = $6, monthly_rent = $7, property_type = $8, status = $9, image = $10, last_inspection = $11, manager = $12 WHERE id = $13`,
+          [
+            formData.name,
+            formData.address,
+            formData.block,
+            formData.totalUnits,
+            formData.occupiedUnits,
+            formData.vacantUnits,
+            formData.monthlyRent,
+            formData.propertyType,
+            formData.status,
+            formData.image,
+            formData.lastInspection,
+            formData.manager,
+            formData.id,
+          ]
+        );
+        console.log('Property updated successfully:', formData.id);
+      } else {
+        const newId = String(properties.length + 1);
+        await db.execute(
+          `INSERT INTO properties (id, name, address, block, total_units, occupied_units, vacant_units, monthly_rent, property_type, status, image, last_inspection, manager) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+          [
+            newId,
+            formData.name,
+            formData.address,
+            formData.block,
+            formData.totalUnits,
+            formData.occupiedUnits,
+            formData.vacantUnits,
+            formData.monthlyRent,
+            formData.propertyType,
+            formData.status,
+            formData.image,
+            formData.lastInspection,
+            formData.manager,
+          ]
+        );
+        console.log('New property added successfully:', newId);
+      }
+
+      const dbProperties = await db.select(`SELECT * FROM properties`);
+      setProperties(dbProperties);
+      setIsFormModalOpen(false);
+      setFormData({
+        name: '',
+        address: '',
+        block: 'Block A',
+        totalUnits: 0,
+        occupiedUnits: 0,
+        vacantUnits: 0,
+        monthlyRent: 0,
+        propertyType: 'Apartment',
+        status: 'Active',
+        image: '',
+        lastInspection: '',
+        manager: '',
+      });
+      setEditMode(false);
+      setEditingPropertyId(null);
+      setError('');
+    } catch (err) {
+      console.error('Error submitting property:', err);
+      setError('Failed to submit property');
+    } finally {
+      setLoading(false);
+      if (db) await db.close();
+    }
+  };
   const getStatusStyle = (status) => {
     switch (status) {
       case 'Active':
@@ -399,6 +558,11 @@ const PropertiesPage = () => {
       default:
         return { ...styles.statusBadge, ...styles.statusVacant };
     }
+  };
+
+  const handleDeleteProperty = (id) => {
+    setDeletingPropertyId(id);
+    setDeleteMode(true);
   };
 
   const PropertyCardView = ({ property }) => (
@@ -458,6 +622,7 @@ const PropertiesPage = () => {
             </button>
             <button
               style={styles.actionButton}
+              onClick={() => handleEditProperty(property.id)}
               onMouseEnter={(e) => (e.target.style.backgroundColor = '#E5E7EB')}
               onMouseLeave={(e) => (e.target.style.backgroundColor = '#F3F4F6')}
             >
@@ -465,11 +630,19 @@ const PropertiesPage = () => {
             </button>
             <button
               style={styles.actionButton}
+              onClick={() => handleDeleteProperty(property.id)}
+              onMouseEnter={(e) => (e.target.style.backgroundColor = '#E5E7EB')}
+              onMouseLeave={(e) => (e.target.style.backgroundColor = '#F3F4F6')}
+            >
+              <Trash2 size={16} />
+            </button>
+            {/* <button
+              style={styles.actionButton}
               onMouseEnter={(e) => (e.target.style.backgroundColor = '#E5E7EB')}
               onMouseLeave={(e) => (e.target.style.backgroundColor = '#F3F4F6')}
             >
               <Settings size={16} />
-            </button>
+            </button> */}
           </div>
         </div>
       </div>
@@ -554,6 +727,7 @@ const PropertiesPage = () => {
           <h1 style={styles.title}>Properties</h1>
           <button
             style={styles.addButton}
+            onClick={() => setIsFormModalOpen(true)}
             onMouseEnter={(e) => (e.target.style.backgroundColor = '#2563EB')}
             onMouseLeave={(e) => (e.target.style.backgroundColor = '#3B82F6')}
           >
@@ -741,6 +915,293 @@ const PropertiesPage = () => {
           </div>
         )}
       </main>
+
+      {isFormModalOpen && (
+        <div style={modalOverlayStyle}>
+          <div style={modalContentStyle}>
+            <h2
+              style={{
+                fontSize: '20px',
+                fontWeight: 'bold',
+                marginBottom: '16px',
+              }}
+            >
+              {editMode ? 'Edit Property' : 'Add Property'}
+            </h2>
+            <form>
+              <label
+                htmlFor="name"
+                style={{ ...styles.filterLabel, marginBottom: '4px' }}
+              >
+                Name
+              </label>
+              <input
+                id="name"
+                name="name"
+                value={formData.name}
+                onChange={handleInputChange}
+                placeholder="Name"
+                style={{
+                  ...styles.filterSelect,
+                  width: '100%',
+                  marginBottom: '12px',
+                }}
+              />
+              <label
+                htmlFor="address"
+                style={{ ...styles.filterLabel, marginBottom: '4px' }}
+              >
+                Address
+              </label>
+              <input
+                id="address"
+                name="address"
+                value={formData.address}
+                onChange={handleInputChange}
+                placeholder="Address"
+                style={{
+                  ...styles.filterSelect,
+                  width: '100%',
+                  marginBottom: '12px',
+                }}
+              />
+              <label
+                htmlFor="block"
+                style={{ ...styles.filterLabel, marginBottom: '4px' }}
+              >
+                Block
+              </label>
+              <select
+                id="block"
+                name="block"
+                value={formData.block}
+                onChange={handleInputChange}
+                style={{
+                  ...styles.filterSelect,
+                  width: '100%',
+                  marginBottom: '12px',
+                }}
+              >
+                <option value="Block A">Block A</option>
+                <option value="Block B">Block B</option>
+                <option value="Block C">Block C</option>
+              </select>
+              <label
+                htmlFor="totalUnits"
+                style={{ ...styles.filterLabel, marginBottom: '4px' }}
+              >
+                Total Units
+              </label>
+              <input
+                id="totalUnits"
+                name="totalUnits"
+                type="number"
+                value={formData.totalUnits}
+                onChange={handleInputChange}
+                placeholder="Total Units"
+                style={{
+                  ...styles.filterSelect,
+                  width: '100%',
+                  marginBottom: '12px',
+                }}
+              />
+              <label
+                htmlFor="occupiedUnits"
+                style={{ ...styles.filterLabel, marginBottom: '4px' }}
+              >
+                Occupied Units
+              </label>
+              <input
+                id="occupiedUnits"
+                name="occupiedUnits"
+                type="number"
+                value={formData.occupiedUnits}
+                onChange={handleInputChange}
+                placeholder="Occupied Units"
+                style={{
+                  ...styles.filterSelect,
+                  width: '100%',
+                  marginBottom: '12px',
+                }}
+              />
+              <label
+                htmlFor="vacantUnits"
+                style={{ ...styles.filterLabel, marginBottom: '4px' }}
+              >
+                Vacant Units
+              </label>
+              <input
+                id="vacantUnits"
+                name="vacantUnits"
+                type="number"
+                value={formData.vacantUnits}
+                onChange={handleInputChange}
+                placeholder="Vacant Units"
+                style={{
+                  ...styles.filterSelect,
+                  width: '100%',
+                  marginBottom: '12px',
+                }}
+              />
+              <label
+                htmlFor="monthlyRent"
+                style={{ ...styles.filterLabel, marginBottom: '4px' }}
+              >
+                Monthly Rent
+              </label>
+              <input
+                id="monthlyRent"
+                name="monthlyRent"
+                type="number"
+                value={formData.monthlyRent}
+                onChange={handleInputChange}
+                placeholder="Monthly Rent"
+                style={{
+                  ...styles.filterSelect,
+                  width: '100%',
+                  marginBottom: '12px',
+                }}
+              />
+              <label
+                htmlFor="propertyType"
+                style={{ ...styles.filterLabel, marginBottom: '4px' }}
+              >
+                Property Type
+              </label>
+              <select
+                id="propertyType"
+                name="propertyType"
+                value={formData.propertyType}
+                onChange={handleInputChange}
+                style={{
+                  ...styles.filterSelect,
+                  width: '100%',
+                  marginBottom: '12px',
+                }}
+              >
+                <option value="Apartment">Apartment</option>
+                <option value="Townhouse">Townhouse</option>
+                <option value="House">House</option>
+                <option value="Studio">Studio</option>
+                <option value="Villa">Villa</option>
+              </select>
+              <label
+                htmlFor="status"
+                style={{ ...styles.filterLabel, marginBottom: '4px' }}
+              >
+                Status
+              </label>
+              <select
+                id="status"
+                name="status"
+                value={formData.status}
+                onChange={handleInputChange}
+                style={{
+                  ...styles.filterSelect,
+                  width: '100%',
+                  marginBottom: '12px',
+                }}
+              >
+                <option value="Active">Active</option>
+                <option value="Maintenance">Maintenance</option>
+                <option value="Vacant">Vacant</option>
+              </select>
+              <label
+                htmlFor="image"
+                style={{ ...styles.filterLabel, marginBottom: '4px' }}
+              >
+                Image URL
+              </label>
+              <input
+                id="image"
+                name="image"
+                value={formData.image}
+                onChange={handleInputChange}
+                placeholder="Image URL"
+                style={{
+                  ...styles.filterSelect,
+                  width: '100%',
+                  marginBottom: '12px',
+                }}
+              />
+              <label
+                htmlFor="lastInspection"
+                style={{ ...styles.filterLabel, marginBottom: '4px' }}
+              >
+                Last Inspection
+              </label>
+              <input
+                id="lastInspection"
+                name="lastInspection"
+                type="date"
+                value={formData.lastInspection}
+                onChange={handleInputChange}
+                style={{
+                  ...styles.filterSelect,
+                  width: '100%',
+                  marginBottom: '12px',
+                }}
+              />
+              <label
+                htmlFor="manager"
+                style={{ ...styles.filterLabel, marginBottom: '4px' }}
+              >
+                Manager
+              </label>
+              <input
+                id="manager"
+                name="manager"
+                value={formData.manager}
+                onChange={handleInputChange}
+                placeholder="Manager"
+                style={{
+                  ...styles.filterSelect,
+                  width: '100%',
+                  marginBottom: '12px',
+                }}
+              />
+            </form>
+
+            <button
+              style={{ ...styles.actionButton, marginLeft: 'auto' }}
+              onClick={handleCloseModal}
+            >
+              Close
+            </button>
+
+            <button
+              style={{ ...styles.addButton, width: '100%', marginTop: '12px' }}
+              onClick={handleSubmit}
+            >
+              Submit
+            </button>
+          </div>
+        </div>
+      )}
+      {deleteMode && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+          <div className="bg-white p-6 rounded-lg w-[500px] max-h-[80vh] overflow-y-auto">
+            <h2 className="text-2xl font-bold mb-4">Confirm Delete</h2>
+            <p className="mb-4">
+              Are you sure you want to delete this property?
+            </p>
+            <div className="flex gap-3 mt-4">
+              <button
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                onClick={handleConfirmDelete}
+              >
+                Yes
+              </button>
+              <button
+                className="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors w-full"
+                onClick={() => setDeleteMode(false)}
+              >
+                No
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

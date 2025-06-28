@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import Database from "@tauri-apps/plugin-sql";
+import React, { useState, useEffect } from 'react';
+import Database from '@tauri-apps/plugin-sql';
 import {
   Home,
   Search,
@@ -34,134 +34,134 @@ import {
   Ruler,
   Users,
   Dog,
-} from "lucide-react";
-import { invoke } from "@tauri-apps/api/core";
+} from 'lucide-react';
+import { invoke } from '@tauri-apps/api/core';
 
 // Mock Data for demonstration purposes
 const mockUnits = [
   {
-    id: "U001",
-    unit_number: "SL-201",
-    property: "Sunset Lofts",
-    block: "A",
+    id: 'U001',
+    unit_number: 'SL-201',
+    property: 'Sunset Lofts',
+    block: 'A',
     floor: 2,
-    status: "Occupied",
-    type: "2BR/2BA",
+    status: 'Occupied',
+    type: '2BR/2BA',
     bedrooms: 2,
     bathrooms: 2,
     squareFootage: 1200,
     rent: 1800,
     securityDeposit: 1800,
-    amenities: ["Parking", "AC", "Pool Access"],
+    amenities: ['Parking', 'AC', 'Pool Access'],
     photos: [
-      "https://placehold.co/200x150/FF5733/FFFFFF?text=SL-201-1",
-      "https://placehold.co/200x150/33FF57/FFFFFF?text=SL-201-2",
+      'https://placehold.co/200x150/FF5733/FFFFFF?text=SL-201-1',
+      'https://placehold.co/200x150/33FF57/FFFFFF?text=SL-201-2',
     ],
     tenantInfo: {
-      id: "T001",
-      name: "Alice Johnson",
-      leaseEndDate: "2025-01-14",
+      id: 'T001',
+      name: 'Alice Johnson',
+      leaseEndDate: '2025-01-14',
     },
-    notes: "Recently renovated kitchen.",
+    notes: 'Recently renovated kitchen.',
   },
   {
-    id: "U002",
-    unit_number: "GVA-105",
-    property: "Green Valley Apartments",
-    block: "B",
+    id: 'U002',
+    unit_number: 'GVA-105',
+    property: 'Green Valley Apartments',
+    block: 'B',
     floor: 1,
-    status: "Available",
-    type: "1BR/1BA",
+    status: 'Available',
+    type: '1BR/1BA',
     bedrooms: 1,
     bathrooms: 1,
     squareFootage: 750,
     rent: 1500,
     securityDeposit: 1500,
-    amenities: ["Gym", "Balcony", "Wifi"],
-    photos: ["https://placehold.co/200x150/3366FF/FFFFFF?text=GVA-105-1"],
+    amenities: ['Gym', 'Balcony', 'Wifi'],
+    photos: ['https://placehold.co/200x150/3366FF/FFFFFF?text=GVA-105-1'],
     tenantInfo: null,
-    notes: "Great view of the park.",
+    notes: 'Great view of the park.',
   },
   {
-    id: "U003",
-    unit_number: "CVC-08",
-    property: "City View Condos",
-    block: "Main",
+    id: 'U003',
+    unit_number: 'CVC-08',
+    property: 'City View Condos',
+    block: 'Main',
     floor: 5,
-    status: "Maintenance",
-    type: "3BR/2BA",
+    status: 'Maintenance',
+    type: '3BR/2BA',
     bedrooms: 3,
     bathrooms: 2,
     squareFootage: 1800,
     rent: 2200,
     securityDeposit: 2200,
-    amenities: ["Washer/Dryer", "Pet Friendly"],
-    photos: ["https://placehold.co/200x150/33FF57/FFFFFF?text=CVC-08-1"],
+    amenities: ['Washer/Dryer', 'Pet Friendly'],
+    photos: ['https://placehold.co/200x150/33FF57/FFFFFF?text=CVC-08-1'],
     tenantInfo: null,
-    notes: "Plumbing repair in progress. Estimated completion: 2024-07-01.",
+    notes: 'Plumbing repair in progress. Estimated completion: 2024-07-01.',
   },
   {
-    id: "U004",
-    unit_number: "SL-303",
-    property: "Sunset Lofts",
-    block: "A",
+    id: 'U004',
+    unit_number: 'SL-303',
+    property: 'Sunset Lofts',
+    block: 'A',
     floor: 3,
-    status: "Occupied",
-    type: "2BR/1BA",
+    status: 'Occupied',
+    type: '2BR/1BA',
     bedrooms: 2,
     bathrooms: 1,
     squareFootage: 1000,
     rent: 1950,
     securityDeposit: 1950,
-    amenities: ["Parking", "Balcony"],
-    photos: ["https://placehold.co/200x150/FF33CC/FFFFFF?text=SL-303-1"],
+    amenities: ['Parking', 'Balcony'],
+    photos: ['https://placehold.co/200x150/FF33CC/FFFFFF?text=SL-303-1'],
     tenantInfo: {
-      id: "T004",
-      name: "David Lee",
-      leaseEndDate: "2025-08-31",
+      id: 'T004',
+      name: 'David Lee',
+      leaseEndDate: '2025-08-31',
     },
-    notes: "Quiet corner unit.",
+    notes: 'Quiet corner unit.',
   },
   {
-    id: "U005",
-    unit_number: "GVA-210",
-    property: "Green Valley Apartments",
-    block: "C",
+    id: 'U005',
+    unit_number: 'GVA-210',
+    property: 'Green Valley Apartments',
+    block: 'C',
     floor: 2,
-    status: "Reserved",
-    type: "1BR/1BA",
+    status: 'Reserved',
+    type: '1BR/1BA',
     bedrooms: 1,
     bathrooms: 1,
     squareFootage: 800,
     rent: 1450,
     securityDeposit: 1450,
-    amenities: ["AC", "Gym"],
-    photos: ["https://placehold.co/200x150/5733FF/FFFFFF?text=GVA-210-1"],
+    amenities: ['AC', 'Gym'],
+    photos: ['https://placehold.co/200x150/5733FF/FFFFFF?text=GVA-210-1'],
     tenantInfo: null, // Could add a 'reservedBy' field later if needed
-    notes: "Awaiting final approval for new tenant.",
+    notes: 'Awaiting final approval for new tenant.',
   },
 ];
 
 // Helper function to map amenity strings to Lucide icons
 const getAmenityIcon = (amenity) => {
   switch (amenity.toLowerCase()) {
-    case "parking":
+    case 'parking':
       return <Car className="h-4 w-4 text-gray-500" />;
-    case "ac":
+    case 'ac':
       return <Snowflake className="h-4 w-4 text-gray-500" />;
-    case "balcony":
+    case 'balcony':
       return <Home className="h-4 w-4 text-gray-500" />;
-    case "pool access":
+    case 'pool access':
       return <Waves className="h-4 w-4 text-gray-500" />;
-    case "gym":
+    case 'gym':
       return <Dumbbell className="h-4 w-4 text-gray-500" />;
-    case "washer/dryer":
+    case 'washer/dryer':
       return <Droplet className="h-4 w-4 text-gray-500" />;
-    case "pet friendly":
+    case 'pet friendly':
       return <Dog className="h-4 w-4 text-gray-500" />;
-    case "wifi":
+    case 'wifi':
       return <Wifi className="h-4 w-4 text-gray-500" />;
-    case "coffee":
+    case 'coffee':
       return <Coffee className="h-4 w-4 text-gray-500" />;
     default:
       return <QrCode className="h-4 w-4 text-gray-500" />; // Generic icon
@@ -174,10 +174,10 @@ const Unit = () => {
   const [filteredUnits, setFilteredUnits] = useState([]);
 
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
 
   // Add new state to track modal mode (add or edit)
-  const [modalMode, setModalMode] = useState("add"); // "add" or "edit"
+  const [modalMode, setModalMode] = useState('add'); // "add" or "edit"
   const [editingUnitId, setEditingUnitId] = useState(null); // Track unit ID being edited
 
   useEffect(() => {
@@ -185,7 +185,7 @@ const Unit = () => {
       let db;
       try {
         setLoading(true);
-        db = await Database.load("sqlite:test.db");
+        db = await Database.load('sqlite:test.db');
         await db.execute(`
         CREATE TABLE IF NOT EXISTS units (
           id TEXT PRIMARY KEY,
@@ -206,25 +206,17 @@ const Unit = () => {
           notes TEXT
         )
       `);
-        await db.execute(`
-        CREATE TABLE IF NOT EXISTS tenants (
-          id TEXT PRIMARY KEY,
-          tenant_name TEXT,
-          lease_end_date TEXT
-        )
-      `);
-        const dbUnits = await db.select(
-          `
+        const dbUnits = await db.select(`
         SELECT * FROM units
         LEFT JOIN tenants ON units.tenant_info_id = tenants.id
-        `
-        );
+      `);
+        console.log('Fetched units from DB:', dbUnits); // Add log
         const processedUnits = dbUnits.map((unit) => ({
           ...unit,
           amenities: unit.amenities
-            ? unit.amenities.split(",").filter(Boolean)
+            ? unit.amenities.split(',').filter(Boolean)
             : [],
-          photos: unit.photos ? unit.photos.split(",").filter(Boolean) : [],
+          photos: unit.photos ? unit.photos.split(',').filter(Boolean) : [],
           tenantInfo: unit.tenant_info_id
             ? {
                 id: unit.tenant_info_id,
@@ -233,13 +225,11 @@ const Unit = () => {
               }
             : null,
         }));
-
-        setError("");
         setUnits(processedUnits);
         setFilteredUnits(processedUnits);
       } catch (err) {
-        console.error("Error fetching units:", err);
-        setError("Failed to get units - check console");
+        console.error('Error fetching units:', err);
+        setError('Failed to get units - check console');
       } finally {
         setLoading(false);
         if (db) await db.close();
@@ -248,29 +238,29 @@ const Unit = () => {
     fetchUnits();
   }, []);
   // State for search and filters
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState("All");
-  const [filterProperty, setFilterProperty] = useState("All");
-  const [filterUnitType, setFilterUnitType] = useState("All");
-  const [viewMode, setViewMode] = useState("grid"); // 'grid' or 'list'
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('All');
+  const [filterProperty, setFilterProperty] = useState('All');
+  const [filterUnitType, setFilterUnitType] = useState('All');
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
 
   // State for Add New Unit Modal
   const [isAddUnitModalOpen, setIsAddUnitModalOpen] = useState(false);
   const [newUnitData, setNewUnitData] = useState({
-    unit_number: "",
-    property: "",
-    block: "",
-    floor: "",
-    status: "Available",
-    type: "",
-    bedrooms: "",
-    bathrooms: "",
-    squareFootage: "",
-    rent: "",
-    securityDeposit: "",
+    unit_number: '',
+    property: '',
+    block: '',
+    floor: '',
+    status: 'Available',
+    type: '',
+    bedrooms: '',
+    bathrooms: '',
+    squareFootage: '',
+    rent: '',
+    securityDeposit: '',
     amenities: [],
     photos: [],
-    notes: "",
+    notes: '',
   });
 
   // State for View Unit Details Modal
@@ -286,22 +276,22 @@ const Unit = () => {
     let currentFilteredUnits = units.filter((unit) => {
       // Search by unit number, property name, or block
       const matchesSearch =
-        searchTerm === "" ||
+        searchTerm === '' ||
         unit.unit_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
         unit.property.toLowerCase().includes(searchTerm.toLowerCase()) ||
         unit.block.toLowerCase().includes(searchTerm.toLowerCase());
 
       // Filter by status
       const matchesStatus =
-        filterStatus === "All" || unit.status === filterStatus;
+        filterStatus === 'All' || unit.status === filterStatus;
 
       // Filter by property
       const matchesProperty =
-        filterProperty === "All" || unit.property === filterProperty;
+        filterProperty === 'All' || unit.property === filterProperty;
 
       // Filter by unit type
       const matchesUnitType =
-        filterUnitType === "All" || unit.type === filterUnitType;
+        filterUnitType === 'All' || unit.type === filterUnitType;
 
       return (
         matchesSearch && matchesStatus && matchesProperty && matchesUnitType
@@ -314,7 +304,7 @@ const Unit = () => {
   const handleSaveUnit = async (unitData) => {
     let db;
     try {
-      db = await Database.load("sqlite:test.db");
+      db = await Database.load('sqlite:test.db');
       setLoading(true);
       const existingUnit = await db.select(
         `SELECT id FROM units WHERE id = $1`,
@@ -336,16 +326,16 @@ const Unit = () => {
             unitData.squareFootage,
             unitData.rent,
             unitData.securityDeposit,
-            unitData?.amenities?.join(",") || "",
-            unitData?.photos?.join(",") || "",
+            unitData?.amenities?.join(',') || '',
+            unitData?.photos?.join(',') || '',
             unitData.notes,
             null,
             unitData.id,
           ]
         );
-        console.log("Unit updated successfully:", unitData.id);
+        console.log('Unit updated successfully:', unitData.id);
       } else {
-        const newId = `U${String(units.length + 1).padStart(3, "0")}`;
+        const newId = `U${String(units.length + 1).padStart(3, '0')}`;
         await db.execute(
           `INSERT INTO units (id, unit_number, property, block, floor, status, unit_type, bedrooms, bathrooms, square_footage, rent, security_deposit, amenities, photos, tenant_info_id, notes) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
           [
@@ -361,13 +351,13 @@ const Unit = () => {
             unitData.squareFootage,
             unitData.rent,
             unitData.securityDeposit,
-            unitData?.amenities?.join(",") || "",
-            unitData?.photos?.join(",") || "",
+            unitData?.amenities?.join(',') || '',
+            unitData?.photos?.join(',') || '',
             null,
             unitData.notes,
           ]
         );
-        console.log("New unit added successfully:", newId);
+        console.log('New unit added successfully:', newId);
       }
 
       const dbUnits = await db.select(
@@ -379,9 +369,9 @@ const Unit = () => {
       const processedUnits = dbUnits.map((unit) => ({
         ...unit,
         amenities: unit.amenities
-          ? unit.amenities.split(",").filter(Boolean)
+          ? unit.amenities.split(',').filter(Boolean)
           : [],
-        photos: unit.photos ? unit.photos.split(",").filter(Boolean) : [],
+        photos: unit.photos ? unit.photos.split(',').filter(Boolean) : [],
         tenantInfo: unit.tenant_info_id
           ? {
               id: unit.tenant_info_id,
@@ -394,25 +384,25 @@ const Unit = () => {
       setFilteredUnits(processedUnits);
       setIsAddUnitModalOpen(false);
       setNewUnitData({
-        unit_number: "",
-        property: "",
-        block: "",
-        floor: "",
-        status: "Available",
-        type: "",
-        bedrooms: "",
-        bathrooms: "",
-        squareFootage: "",
-        rent: "",
-        securityDeposit: "",
+        unit_number: '',
+        property: '',
+        block: '',
+        floor: '',
+        status: 'Available',
+        type: '',
+        bedrooms: '',
+        bathrooms: '',
+        squareFootage: '',
+        rent: '',
+        securityDeposit: '',
         amenities: [],
         photos: [],
-        notes: "",
+        notes: '',
       });
-      setError("");
+      setError('');
     } catch (err) {
-      console.error("Error saving unit:", err);
-      setError("Failed to save unit.");
+      console.error('Error saving unit:', err);
+      setError('Failed to save unit.');
     } finally {
       setLoading(false);
       if (db) await db.close();
@@ -425,49 +415,49 @@ const Unit = () => {
     await handleSaveUnit(updatedUnit);
     setIsAddUnitModalOpen(false);
     setNewUnitData({
-      unit_number: "",
-      property: "",
-      block: "",
-      floor: "",
-      status: "Available",
-      type: "",
-      bedrooms: "",
-      bathrooms: "",
-      squareFootage: "",
-      rent: "",
-      securityDeposit: "",
+      unit_number: '',
+      property: '',
+      block: '',
+      floor: '',
+      status: 'Available',
+      type: '',
+      bedrooms: '',
+      bathrooms: '',
+      squareFootage: '',
+      rent: '',
+      securityDeposit: '',
       amenities: [],
       photos: [],
-      notes: "",
+      notes: '',
     });
     setEditingUnitId(null);
-    setModalMode("add");
+    setModalMode('add');
   };
 
   // Handle adding a new unit
   const handleAddUnit = async (e) => {
     e.preventDefault();
-    console.log("Adding new unit with data:", newUnitData);
+    console.log('Adding new unit with data:', newUnitData);
 
-    const newId = `U${String(units.length + 1).padStart(3, "0")}`;
+    const newId = `U${String(units.length + 1).padStart(3, '0')}`;
     const unitWithId = { ...newUnitData, id: newId, tenantInfo: null }; // New units are initially available
     setUnits([...units, unitWithId]);
     setIsAddUnitModalOpen(false);
     setNewUnitData({
-      unit_number: "",
-      property: "",
-      block: "",
-      floor: "",
-      status: "Available",
-      type: "",
-      bedrooms: "",
-      bathrooms: "",
-      squareFootage: "",
-      rent: "",
-      securityDeposit: "",
+      unit_number: '',
+      property: '',
+      block: '',
+      floor: '',
+      status: 'Available',
+      type: '',
+      bedrooms: '',
+      bathrooms: '',
+      squareFootage: '',
+      rent: '',
+      securityDeposit: '',
       amenities: [],
       photos: [],
-      notes: "",
+      notes: '',
     });
     // INSERT INTO UNITS TABLE
     handleSaveUnit(unitWithId);
@@ -481,27 +471,29 @@ const Unit = () => {
 
   // Handle editing a unit (placeholder for now, would open an edit modal)
   const handleEditUnit = (unitId) => {
-    console.log(`Editing unit with ID: ${unitId}`);
-    const unitToEdit = units.find((unit) => unit.id === unitId);
+    console.log('units', units);
+    console.log(`Attempting to edit unit with ID: ${unitId}`); // Add log
+    const unitToEdit = units.find((unit) => unit.unit_number === unitId);
     if (unitToEdit) {
+      console.log(`Found unit to edit:`, unitToEdit); // Add log
       setNewUnitData({
         unit_number: unitToEdit.unit_number,
         property: unitToEdit.property,
         block: unitToEdit.block,
-        floor: unitToEdit.floor || "",
+        floor: unitToEdit.floor || '',
         status: unitToEdit.status,
         type: unitToEdit.type,
-        bedrooms: unitToEdit.bedrooms || "",
-        bathrooms: unitToEdit.bathrooms || "",
-        squareFootage: unitToEdit.squareFootage || "",
-        rent: unitToEdit.rent || "",
-        securityDeposit: unitToEdit.securityDeposit || "",
+        bedrooms: unitToEdit.bedrooms || '',
+        bathrooms: unitToEdit.bathrooms || '',
+        squareFootage: unitToEdit.squareFootage || '',
+        rent: unitToEdit.rent || '',
+        securityDeposit: unitToEdit.securityDeposit || '',
         amenities: unitToEdit.amenities || [],
         photos: unitToEdit.photos || [],
-        notes: unitToEdit.notes || "",
+        notes: unitToEdit.notes || '',
       });
       setEditingUnitId(unitId);
-      setModalMode("edit");
+      setModalMode('edit');
       setIsAddUnitModalOpen(true);
       console.log(`Opened edit modal for unit ID: ${unitId}`);
     } else {
@@ -511,17 +503,21 @@ const Unit = () => {
   };
 
   // Handle deleting a unit
-  const handleDeleteUnit = async (unitId) => {
-    if (window.confirm(`Are you sure you want to delete unit ${unitId}?`)) {
+  const handleDeleteUnit = async (unit_number) => {
+    if (
+      window.confirm(`Are you sure you want to delete unit ${unit_number}?`)
+    ) {
       try {
         setLoading(true);
-        const db = await Database.load("sqlite:test.db");
-        await db.execute(`DELETE FROM units WHERE id = $1`, [unitId]);
-        setUnits(units.filter((unit) => unit.id !== unitId));
-        setError("");
+        const db = await Database.load('sqlite:test.db');
+        await db.execute(`DELETE FROM units WHERE unit_number = $1`, [
+          unit_number,
+        ]);
+        setUnits(units.filter((unit) => unit.unit_number !== unit_number));
+        setError('');
       } catch (err) {
-        console.error("Error deleting unit:", err);
-        setError("Failed to delete unit.");
+        console.error('Error deleting unit:', err);
+        setError('Failed to delete unit.');
       } finally {
         setLoading(false);
       }
@@ -530,49 +526,49 @@ const Unit = () => {
 
   // Unit Dashboard Stats
   const totalUnits = units.length;
-  const availableUnits = units.filter((u) => u.status === "Available").length;
-  const occupiedUnits = units.filter((u) => u.status === "Occupied").length;
+  const availableUnits = units.filter((u) => u.status === 'Available').length;
+  const occupiedUnits = units.filter((u) => u.status === 'Occupied').length;
   const maintenanceUnits = units.filter(
-    (u) => u.status === "Maintenance"
+    (u) => u.status === 'Maintenance'
   ).length;
-  const reservedUnits = units.filter((u) => u.status === "Reserved").length;
+  const reservedUnits = units.filter((u) => u.status === 'Reserved').length;
 
   const occupancyRate =
-    totalUnits > 0 ? ((occupiedUnits / totalUnits) * 100).toFixed(1) : "0.0";
+    totalUnits > 0 ? ((occupiedUnits / totalUnits) * 100).toFixed(1) : '0.0';
   const averageRent =
     totalUnits > 0
       ? (units.reduce((sum, u) => sum + u.rent, 0) / totalUnits).toFixed(2)
-      : "0.00";
+      : '0.00';
 
   // Helper to get status badge color
   const getStatusColor = (status) => {
     switch (status) {
-      case "Available":
-        return "bg-green-100 text-green-800";
-      case "Occupied":
-        return "bg-blue-100 text-blue-800";
-      case "Maintenance":
-        return "bg-yellow-100 text-yellow-800";
-      case "Reserved":
-        return "bg-purple-100 text-purple-800";
+      case 'Available':
+        return 'bg-green-100 text-green-800';
+      case 'Occupied':
+        return 'bg-blue-100 text-blue-800';
+      case 'Maintenance':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'Reserved':
+        return 'bg-purple-100 text-purple-800';
       default:
-        return "bg-gray-100 text-gray-800";
+        return 'bg-gray-100 text-gray-800';
     }
   };
 
   // Common button styling
   const primaryButtonClass =
-    "px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition duration-200 ease-in-out shadow-md hover:shadow-lg";
+    'px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition duration-200 ease-in-out shadow-md hover:shadow-lg';
   const secondaryButtonClass =
-    "px-3 py-1 rounded-md bg-gray-200 text-gray-700 hover:bg-gray-300 transition duration-200 ease-in-out text-sm";
+    'px-3 py-1 rounded-md bg-gray-200 text-gray-700 hover:bg-gray-300 transition duration-200 ease-in-out text-sm';
   const iconButtonClass =
-    "p-2 rounded-full hover:bg-gray-200 transition duration-200 ease-in-out";
+    'p-2 rounded-full hover:bg-gray-200 transition duration-200 ease-in-out';
 
   // Modal styling
   const modalOverlayClass =
-    "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4";
+    'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
   const modalContentClass =
-    "bg-white p-6 rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto w-full max-w-3xl transform transition-all duration-300 ease-in-out scale-95  ";
+    'bg-white p-6 rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto w-full max-w-3xl transform transition-all duration-300 ease-in-out scale-95  ';
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans text-gray-900 antialiased p-4 sm:p-6 lg:p-8">
@@ -654,7 +650,7 @@ const Unit = () => {
         <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
           <select
             className="p-2 rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ease-in-out flex-grow"
-            value={filterStatus}
+            value={filterStatus ?? 'All'}
             onChange={(e) => setFilterStatus(e.target.value)}
           >
             <option value="All">All Statuses</option>
@@ -691,22 +687,22 @@ const Unit = () => {
 
         <div className="flex gap-2 w-full md:w-auto justify-end">
           <button
-            onClick={() => setViewMode("grid")}
+            onClick={() => setViewMode('grid')}
             className={`${iconButtonClass} ${
-              viewMode === "grid"
-                ? "bg-blue-100 text-blue-600"
-                : "text-gray-600"
+              viewMode === 'grid'
+                ? 'bg-blue-100 text-blue-600'
+                : 'text-gray-600'
             }`}
             aria-label="Grid View"
           >
             <LayoutGrid size={20} />
           </button>
           <button
-            onClick={() => setViewMode("list")}
+            onClick={() => setViewMode('list')}
             className={`${iconButtonClass} ${
-              viewMode === "list"
-                ? "bg-blue-100 text-blue-600"
-                : "text-gray-600"
+              viewMode === 'list'
+                ? 'bg-blue-100 text-blue-600'
+                : 'text-gray-600'
             }`}
             aria-label="List View"
           >
@@ -734,7 +730,7 @@ const Unit = () => {
               <Plus size={20} /> Add New Unit
             </button>
           </div>
-        ) : viewMode === "grid" ? (
+        ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredUnits.map((unit, index) => (
               <div
@@ -766,11 +762,11 @@ const Unit = () => {
                     </span>
                   </div>
                   <p className="text-sm text-gray-600 flex items-center gap-2 mb-1">
-                    <Building2 className="w-4 h-4" /> {unit.property}, Block{" "}
+                    <Building2 className="w-4 h-4" /> {unit.property}, Block{' '}
                     {unit.block}, Floor {unit.floor}
                   </p>
                   <p className="text-sm text-gray-600 flex items-center gap-2 mb-1">
-                    <Bed className="w-4 h-4" /> {unit.bedrooms} BR /{" "}
+                    <Bed className="w-4 h-4" /> {unit.bedrooms} BR /{' '}
                     <Bath className="w-4 h-4" /> {unit.bathrooms} BA (
                     {unit.type})
                   </p>
@@ -782,8 +778,8 @@ const Unit = () => {
                   </p>
                   {unit.tenantInfo ? (
                     <p className="text-sm text-gray-600 flex items-center gap-2 mt-2">
-                      <Users className="w-4 h-4" /> Tenant:{" "}
-                      {unit.tenantInfo.name} (Lease ends:{" "}
+                      <Users className="w-4 h-4" /> Tenant:{' '}
+                      {unit.tenantInfo.name} (Lease ends:{' '}
                       {unit.tenantInfo.leaseEndDate})
                     </p>
                   ) : (
@@ -801,14 +797,14 @@ const Unit = () => {
                     <Eye className="w-4 h-4 mr-1 inline-block" /> View
                   </button>
                   <button
-                    onClick={() => handleEditUnit(unit.id)}
+                    onClick={() => handleEditUnit(unit.unit_number)}
                     className={secondaryButtonClass}
                     aria-label="Edit Unit"
                   >
                     <Edit className="w-4 h-4 mr-1 inline-block" /> Edit
                   </button>
                   <button
-                    onClick={() => handleDeleteUnit(unit.id)}
+                    onClick={() => handleDeleteUnit(unit.unit_number)}
                     className={`${secondaryButtonClass} text-red-600 hover:bg-red-100`}
                     aria-label="Delete Unit"
                   >
@@ -876,7 +872,7 @@ const Unit = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {unit.tenantInfo
                         ? `${unit.tenantInfo.name} (ends: ${unit.tenantInfo.leaseEndDate})`
-                        : "None"}
+                        : 'None'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end gap-2">
@@ -888,14 +884,14 @@ const Unit = () => {
                           <Eye className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => handleEditUnit(unit.id)}
+                          onClick={() => handleEditUnit(unit.unit_number)}
                           className={`${secondaryButtonClass} p-2`}
                           aria-label="Edit Unit"
                         >
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => handleDeleteUnit(unit.id)}
+                          onClick={() => handleDeleteUnit(unit.unit_number)}
                           className={`${secondaryButtonClass} p-2 text-red-600 hover:bg-red-100`}
                           aria-label="Delete Unit"
                         >
@@ -916,10 +912,10 @@ const Unit = () => {
         <div className={modalOverlayClass} data-state="open">
           <div className={modalContentClass}>
             <h2 className="text-2xl font-bold mb-6 text-gray-900">
-              {modalMode === "edit" ? "Edit Unit" : "Add New Unit"}
+              {modalMode === 'edit' ? 'Edit Unit' : 'Add New Unit'}
             </h2>
             <form
-              onSubmit={modalMode === "edit" ? handleUpdateUnit : handleAddUnit}
+              onSubmit={modalMode === 'edit' ? handleUpdateUnit : handleAddUnit}
               className="grid grid-cols-1 md:grid-cols-2 gap-6"
             >
               {/* Unit Identification */}
@@ -1004,7 +1000,7 @@ const Unit = () => {
                     onChange={(e) =>
                       setNewUnitData({
                         ...newUnitData,
-                        floor: parseInt(e.target.value) || "",
+                        floor: parseInt(e.target.value) || '',
                       })
                     }
                   />
@@ -1069,7 +1065,7 @@ const Unit = () => {
                     onChange={(e) =>
                       setNewUnitData({
                         ...newUnitData,
-                        bedrooms: parseInt(e.target.value) || "",
+                        bedrooms: parseInt(e.target.value) || '',
                       })
                     }
                   />
@@ -1089,7 +1085,7 @@ const Unit = () => {
                     onChange={(e) =>
                       setNewUnitData({
                         ...newUnitData,
-                        bathrooms: parseInt(e.target.value) || "",
+                        bathrooms: parseInt(e.target.value) || '',
                       })
                     }
                   />
@@ -1109,7 +1105,7 @@ const Unit = () => {
                     onChange={(e) =>
                       setNewUnitData({
                         ...newUnitData,
-                        squareFootage: parseInt(e.target.value) || "",
+                        squareFootage: parseInt(e.target.value) || '',
                       })
                     }
                   />
@@ -1129,7 +1125,7 @@ const Unit = () => {
                     onChange={(e) =>
                       setNewUnitData({
                         ...newUnitData,
-                        rent: parseFloat(e.target.value) || "",
+                        rent: parseFloat(e.target.value) || '',
                       })
                     }
                     required
@@ -1150,7 +1146,7 @@ const Unit = () => {
                     onChange={(e) =>
                       setNewUnitData({
                         ...newUnitData,
-                        securityDeposit: parseFloat(e.target.value) || "",
+                        securityDeposit: parseFloat(e.target.value) || '',
                       })
                     }
                   />
@@ -1169,14 +1165,14 @@ const Unit = () => {
                   type="text"
                   id="photos"
                   className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  value={newUnitData.photos.join(",")}
+                  value={newUnitData.photos.join(',')}
                   onChange={(e) =>
                     setNewUnitData({
                       ...newUnitData,
                       photos: e.target.value
-                        .split(",")
+                        .split(',')
                         .map((url) => url.trim())
-                        .filter((url) => url !== ""),
+                        .filter((url) => url !== ''),
                     })
                   }
                 />
@@ -1208,23 +1204,23 @@ const Unit = () => {
                 </label>
                 <div className="flex flex-wrap gap-2">
                   {[
-                    "Parking",
-                    "AC",
-                    "Balcony",
-                    "Pool Access",
-                    "Gym",
-                    "Washer/Dryer",
-                    "Pet Friendly",
-                    "Wifi",
-                    "Coffee",
+                    'Parking',
+                    'AC',
+                    'Balcony',
+                    'Pool Access',
+                    'Gym',
+                    'Washer/Dryer',
+                    'Pet Friendly',
+                    'Wifi',
+                    'Coffee',
                   ].map((amenity) => (
                     <button
                       key={amenity}
                       type="button"
                       className={`flex items-center gap-2 px-3 py-1 rounded-full border ${
                         newUnitData.amenities.includes(amenity)
-                          ? "bg-blue-100 border-blue-500 text-blue-800"
-                          : "bg-gray-100 border-gray-300 text-gray-700"
+                          ? 'bg-blue-100 border-blue-500 text-blue-800'
+                          : 'bg-gray-100 border-gray-300 text-gray-700'
                       } hover:bg-blue-50 transition duration-200`}
                       onClick={() => {
                         setNewUnitData((prev) => ({
@@ -1264,7 +1260,7 @@ const Unit = () => {
         <div className={modalOverlayClass} data-state="open">
           <div className={modalContentClass} role="dialog" aria-modal="true">
             <h2 className="text-2xl font-bold mb-6 text-gray-900 flex items-center gap-3">
-              <Building className="w-6 h-6 text-blue-600" /> Unit Details:{" "}
+              <Building className="w-6 h-6 text-blue-600" /> Unit Details:{' '}
               {selectedUnit.unit_number}
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -1289,7 +1285,7 @@ const Unit = () => {
                   {selectedUnit.unit_number}
                 </h3>
                 <p className="text-sm text-gray-600 mb-2">
-                  {selectedUnit.property}, Block {selectedUnit.block}, Floor{" "}
+                  {selectedUnit.property}, Block {selectedUnit.block}, Floor{' '}
                   {selectedUnit.floor}
                 </p>
                 <span
@@ -1307,25 +1303,25 @@ const Unit = () => {
                   Basic Information
                 </h3>
                 <p className="flex items-center gap-2 text-gray-700 mb-2">
-                  <Bed className="w-5 h-5 text-gray-500" /> Bedrooms:{" "}
+                  <Bed className="w-5 h-5 text-gray-500" /> Bedrooms:{' '}
                   <span className="font-medium">{selectedUnit.bedrooms}</span>
                 </p>
                 <p className="flex items-center gap-2 text-gray-700 mb-2">
-                  <Bath className="w-5 h-5 text-gray-500" /> Bathrooms:{" "}
+                  <Bath className="w-5 h-5 text-gray-500" /> Bathrooms:{' '}
                   <span className="font-medium">{selectedUnit.bathrooms}</span>
                 </p>
                 <p className="flex items-center gap-2 text-gray-700 mb-2">
-                  <Ruler className="w-5 h-5 text-gray-500" /> Square Footage:{" "}
+                  <Ruler className="w-5 h-5 text-gray-500" /> Square Footage:{' '}
                   <span className="font-medium">
                     {selectedUnit.squareFootage} sqft
                   </span>
                 </p>
                 <p className="flex items-center gap-2 text-gray-700 mb-2">
-                  <DollarSign className="w-5 h-5 text-gray-500" /> Monthly Rent:{" "}
+                  <DollarSign className="w-5 h-5 text-gray-500" /> Monthly Rent:{' '}
                   <span className="font-medium">${selectedUnit.rent}</span>
                 </p>
                 <p className="flex items-center gap-2 text-gray-700">
-                  <Key className="w-5 h-5 text-gray-500" /> Security Deposit:{" "}
+                  <Key className="w-5 h-5 text-gray-500" /> Security Deposit:{' '}
                   <span className="font-medium">
                     ${selectedUnit.securityDeposit}
                   </span>
@@ -1340,13 +1336,13 @@ const Unit = () => {
                 {selectedUnit.tenantInfo ? (
                   <>
                     <p className="flex items-center gap-2 text-gray-700 mb-2">
-                      <Users className="w-5 h-5 text-gray-500" /> Tenant Name:{" "}
+                      <Users className="w-5 h-5 text-gray-500" /> Tenant Name:{' '}
                       <span className="font-medium">
                         {selectedUnit.tenantInfo.name}
                       </span>
                     </p>
                     <p className="flex items-center gap-2 text-gray-700">
-                      <Calendar className="w-5 h-5 text-gray-500" /> Lease Ends:{" "}
+                      <Calendar className="w-5 h-5 text-gray-500" /> Lease Ends:{' '}
                       <span className="font-medium">
                         {selectedUnit.tenantInfo.leaseEndDate}
                       </span>
@@ -1388,7 +1384,7 @@ const Unit = () => {
                   Notes
                 </h3>
                 <p className="text-gray-700 text-sm italic">
-                  {selectedUnit.notes || "No specific notes for this unit."}
+                  {selectedUnit.notes || 'No specific notes for this unit.'}
                 </p>
               </div>
             </div>
