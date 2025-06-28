@@ -1,75 +1,95 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Search, Plus, Eye, Edit, Trash2 } from 'lucide-react';
-import { invoke } from '@tauri-apps/api/core';
-
 import Database from '@tauri-apps/plugin-sql';
 import { PaymentFormModal } from './PaymentFormModal';
 import { DeleteConfirmationModal } from './DeleteConfirmationModal';
 
 export interface Payment {
-  id: string;
-  tenant: string;
-  unit: string;
-  property: string;
-  amount: number;
-  date: string;
-  dueDate: string;
-  status: 'Paid' | 'Pending' | 'Late' | 'Overdue';
-  method: 'Bank Transfer' | 'Credit Card' | 'Check' | 'Cash';
-  category: 'Rent' | 'Utilities' | 'Maintenance' | 'Deposit';
+  payment_id: string;
+  tenant_id: number; // Updated to INTEGER from TEXT
+  unit_id: number; // Updated to INTEGER from TEXT
+  property_id: number; // Updated to INTEGER from TEXT
+  amount_paid: number;
+  payment_date: string;
+  due_date: string;
+  payment_status: 'Paid' | 'Pending' | 'Overdue';
+  payment_method:
+    | 'Cash'
+    | 'Bank Transfer'
+    | 'Credit Card'
+    | 'Mobile Money'
+    | 'Check'
+    | 'Other';
+  payment_category: 'Rent' | 'Utilities' | 'Deposit' | 'Other';
+  receipt_number?: string;
+  transaction_reference?: string;
+  remarks?: string;
+  created_at?: string;
+  updated_at?: string;
+  tenant_name?: string; // Derived from tenants table
+  unit_number?: string; // Derived from units table
+  property_name?: string; // Derived from properties table
 }
 
 interface Tenant {
-  id: string;
-  name: string;
+  tenant_id: number;
+  full_name: string;
+  phone_number: string;
   email: string;
-  phone: string;
-  unit: string;
-  property: string;
-  leaseStart: string;
-  leaseEnd: string;
-  rentAmount: number;
-  status: 'Active' | 'Moving Out' | 'Overdue';
+  id_number: string;
+  lease_start_date: string;
+  lease_end_date: string;
+  rent_amount: number;
+  deposit_amount: number;
+  unit_id: number | null; // Nullable foreign key to units
+  status: 'active' | 'Moving Out' | 'Inactive';
+  created_at?: string;
+  updated_at?: string;
 }
 
 interface Property {
-  id: string;
+  property_id: number;
   name: string;
   address: string;
-  units: number;
-  occupiedUnits: number;
-  monthlyRevenue: number;
-  expenses: number;
+  total_units: number;
+  property_type: string;
+  status: string;
+  last_inspection?: string;
+  manager_id: number;
+  created_at?: string;
+  updated_at?: string;
 }
 
 const PropertyManagementDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [payments, setPayments] = useState([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
   const [searchText, setSearchText] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [dateRange, setDateRange] = useState('thisMonth');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // State for CRUD Modals - NEW
   const [showAddEditModal, setShowAddEditModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null); // For editing or deleting
-
-  // Database instance, initialized once - NEW
-  const [dbInstance, setDbInstance] = useState<Database | null>(null);
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
 
   async function fetchPayments() {
     try {
       setLoading(true);
       const db = await Database.load('sqlite:test4.db');
-      // Assuming your payments table has these columns
-      const dbPayments = await db.select(
-        `SELECT id, tenant, unit, property, amount, date, due_date, status, method, category FROM payments`
-      );
+      const dbPayments = await db.select(`
+        SELECT 
+          p.payment_id, p.tenant_id, p.unit_id, p.property_id, p.amount_paid,
+          p.payment_date, p.due_date, p.payment_status, p.payment_method, p.payment_category,
+          p.receipt_number, p.transaction_reference, p.remarks, p.created_at, p.updated_at,
+          t.full_name AS tenant_name, u.unit_number, pr.name AS property_name
+        FROM payments p
+        LEFT JOIN tenants t ON p.tenant_id = t.tenant_id
+        LEFT JOIN units u ON p.unit_id = u.unit_id
+        LEFT JOIN properties pr ON p.property_id = pr.property_id
+      `);
       setError('');
       setPayments(dbPayments);
-      console.log('Payments fetched successfully:', dbPayments);
     } catch (err) {
       console.error('Error fetching payments:', err);
       setError('Failed to get payments - check console');
@@ -78,22 +98,21 @@ const PropertyManagementDashboard: React.FC = () => {
     }
   }
 
-  // Function to handle payment deletion - NEW
   const handleDeletePayment = async () => {
     if (!selectedPayment) {
-      setError('Database not initialized or no payment selected for deletion.');
+      setError('No payment selected for deletion.');
       return;
     }
     setLoading(true);
     const db = await Database.load('sqlite:test4.db');
     try {
-      await db.execute(`DELETE FROM payments WHERE id = $1`, [
-        selectedPayment.id,
+      await db.execute(`DELETE FROM payments WHERE payment_id = $1`, [
+        selectedPayment.payment_id,
       ]);
-      console.log('Payment deleted successfully:', selectedPayment.id);
-      fetchPayments(); // Refresh the list after deletion
-      setShowDeleteConfirm(false); // Close the confirmation modal
-      setSelectedPayment(null); // Clear selected payment
+      console.log('Payment deleted successfully:', selectedPayment.payment_id);
+      fetchPayments();
+      setShowDeleteConfirm(false);
+      setSelectedPayment(null);
     } catch (err) {
       console.error('Error deleting payment:', err);
       setError('Failed to delete payment.');
@@ -102,61 +121,62 @@ const PropertyManagementDashboard: React.FC = () => {
     }
   };
 
-  // Function to handle adding or updating a payment - NEW/MODIFIED
   const handleSavePayment = async (
-    paymentData: Omit<Payment, 'id'> | Payment
+    paymentData: Omit<Payment, 'payment_id'> | Payment
   ) => {
     const db = await Database.load('sqlite:test4.db');
     setLoading(true);
     try {
-      if ('id' in paymentData && paymentData.id !== null) {
-        // Update existing payment - MODIFIED
+      if ('payment_id' in paymentData && paymentData.payment_id !== null) {
         await db.execute(
-          `UPDATE payments SET tenant = $1, unit = $2, property = $3, amount = $4, date = $5, due_date = $6, status = $7, method = $8, category = $9 WHERE id = $10`,
+          `UPDATE payments SET tenant_id = $1, unit_id = $2, property_id = $3, amount_paid = $4,
+           payment_date = $5, due_date = $6, payment_status = $7, payment_method = $8,
+           payment_category = $9, receipt_number = $10, transaction_reference = $11, remarks = $12,
+           updated_at = CURRENT_TIMESTAMP WHERE payment_id = $13`,
           [
-            paymentData.tenant,
-            paymentData.unit,
-            paymentData.property,
-            paymentData.amount,
-            paymentData.date,
-            paymentData.dueDate,
-            paymentData.status,
-            paymentData.method,
-            paymentData.category,
-            paymentData.id, // Use the ID for the WHERE clause
+            paymentData.tenant_id,
+            paymentData.unit_id,
+            paymentData.property_id,
+            paymentData.amount_paid,
+            paymentData.payment_date,
+            paymentData.due_date,
+            paymentData.payment_status,
+            paymentData.payment_method,
+            paymentData.payment_category,
+            paymentData.receipt_number || null,
+            paymentData.transaction_reference || null,
+            paymentData.remarks || null,
+            paymentData.payment_id,
           ]
         );
-        console.log('Payment updated successfully:', paymentData.id);
+        console.log('Payment updated successfully:', paymentData.payment_id);
       } else {
-        // Add new payment (from Step 3)
         await db.execute(
-          `INSERT INTO payments (id,tenant, unit, property, amount, date, due_date, status, method, category) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9,$10)`,
+          `INSERT INTO payments (payment_id, tenant_id, unit_id, property_id, amount_paid,
+           payment_date, due_date, payment_status, payment_method, payment_category,
+           receipt_number, transaction_reference, remarks, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
           [
-            // generate id by finding the max id and adding one
-            (() => {
-              // Find the max id in the current payments array (as number)
-              const maxId = payments.reduce((max, p) => {
-                const idNum = parseInt(p.id, 10);
-                return !isNaN(idNum) && idNum > max ? idNum : max;
-              }, 0);
-              return String(maxId + 1);
-            })(),
-            paymentData.tenant,
-            paymentData.unit,
-            paymentData.property,
-            paymentData.amount,
-            paymentData.date,
-            paymentData.dueDate,
-            paymentData.status,
-            paymentData.method,
-            paymentData.category,
+            `PAY${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+            paymentData.tenant_id,
+            paymentData.unit_id,
+            paymentData.property_id,
+            paymentData.amount_paid,
+            paymentData.payment_date,
+            paymentData.due_date,
+            paymentData.payment_status,
+            paymentData.payment_method,
+            paymentData.payment_category,
+            paymentData.receipt_number || null,
+            paymentData.transaction_reference || null,
+            paymentData.remarks || null,
           ]
         );
         console.log('New payment added successfully.');
       }
-      fetchPayments(); // Refresh the list after save
-      setShowAddEditModal(false); // Close the modal
-      setSelectedPayment(null); // Clear selected payment
+      fetchPayments();
+      setShowAddEditModal(false);
+      setSelectedPayment(null);
     } catch (err) {
       console.error('Error saving payment:', err);
       setError('Failed to save payment.');
@@ -164,6 +184,7 @@ const PropertyManagementDashboard: React.FC = () => {
       setLoading(false);
     }
   };
+
   useEffect(() => {
     fetchPayments();
   }, []);
@@ -171,24 +192,40 @@ const PropertyManagementDashboard: React.FC = () => {
   const filteredPayments = useMemo(() => {
     return payments.filter((payment) => {
       const matchesSearch =
-        payment.tenant.toLowerCase().includes(searchText.toLowerCase()) ||
-        payment.unit.toLowerCase().includes(searchText.toLowerCase()) ||
-        payment.property.toLowerCase().includes(searchText.toLowerCase());
+        (payment.tenant_name || '')
+          .toLowerCase()
+          .includes(searchText.toLowerCase()) ||
+        (payment.unit_number || '')
+          .toLowerCase()
+          .includes(searchText.toLowerCase()) ||
+        (payment.property_name || '')
+          .toLowerCase()
+          .includes(searchText.toLowerCase());
       const matchesFilter =
         filterStatus === 'all' ||
-        payment.status.toLowerCase() === filterStatus.toLowerCase();
+        payment.payment_status.toLowerCase() === filterStatus.toLowerCase();
       return matchesSearch && matchesFilter;
     });
   }, [payments, searchText, filterStatus]);
 
+  if (loading) {
+    return (
+      <div className="p-6 text-center text-gray-600">Loading payments...</div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 text-center text-red-600">
+        <p>{error}</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-
-      {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="space-y-6">
-          {/* Filters */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div className="flex flex-wrap gap-4 items-center">
               <div className="relative flex-1 min-w-64">
@@ -213,7 +250,6 @@ const PropertyManagementDashboard: React.FC = () => {
                 <option value="all">All Status</option>
                 <option value="paid">Paid</option>
                 <option value="pending">Pending</option>
-                <option value="late">Late</option>
                 <option value="overdue">Overdue</option>
               </select>
 
@@ -230,7 +266,7 @@ const PropertyManagementDashboard: React.FC = () => {
 
               <button
                 onClick={() => {
-                  setSelectedPayment(null); // Ensure no old data for add mode - MODIFIED
+                  setSelectedPayment(null);
                   setShowAddEditModal(true);
                 }}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -241,7 +277,6 @@ const PropertyManagementDashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* Payments Table */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -273,29 +308,29 @@ const PropertyManagementDashboard: React.FC = () => {
                 <tbody className="divide-y divide-gray-200">
                   {filteredPayments.map((payment) => (
                     <tr
-                      key={payment.id}
+                      key={payment.payment_id}
                       className="hover:bg-gray-50 transition-colors"
                     >
                       <td className="py-4 px-6">
                         <div>
                           <p className="font-medium text-gray-900">
-                            {payment.tenant}
+                            {payment.tenant_name || 'N/A'}
                           </p>
                           <p className="text-sm text-gray-600">
-                            {payment.unit}
+                            {payment.unit_number || 'N/A'}
                           </p>
                         </div>
                       </td>
                       <td className="py-4 px-6 text-gray-900">
-                        {payment.property}
+                        {payment.property_name || 'N/A'}
                       </td>
                       <td className="py-4 px-6">
                         <div>
                           <p className="font-semibold text-gray-900">
-                            ${payment.amount.toLocaleString()}
+                            ${payment.amount_paid.toLocaleString()}
                           </p>
                           <p className="text-xs text-gray-500">
-                            {payment.category}
+                            {payment.payment_category}
                           </p>
                         </div>
                       </td>
@@ -305,20 +340,18 @@ const PropertyManagementDashboard: React.FC = () => {
                       <td className="py-4 px-6">
                         <span
                           className={`inline-flex px-3 py-1 rounded-full text-sm font-medium ${
-                            payment.status === 'Paid'
+                            payment.payment_status === 'Paid'
                               ? 'bg-green-100 text-green-800'
-                              : payment.status === 'Pending'
+                              : payment.payment_status === 'Pending'
                               ? 'bg-yellow-100 text-yellow-800'
-                              : payment.status === 'Late'
-                              ? 'bg-orange-100 text-orange-800'
                               : 'bg-red-100 text-red-800'
                           }`}
                         >
-                          {payment.status}
+                          {payment.payment_status}
                         </span>
                       </td>
                       <td className="py-4 px-6 text-gray-900">
-                        {payment.method || '-'}
+                        {payment.payment_method || '-'}
                       </td>
                       <td className="py-4 px-6">
                         <div className="flex items-center gap-2">
@@ -327,7 +360,7 @@ const PropertyManagementDashboard: React.FC = () => {
                           </button>
                           <button
                             onClick={() => {
-                              setSelectedPayment(payment); // Set the payment to be edited - MODIFIED
+                              setSelectedPayment(payment);
                               setShowAddEditModal(true);
                             }}
                             className="p-1 text-green-600 hover:text-green-800 transition-colors"
@@ -336,7 +369,7 @@ const PropertyManagementDashboard: React.FC = () => {
                           </button>
                           <button
                             onClick={() => {
-                              setSelectedPayment(payment); // Set the payment to be deleted - MODIFIED
+                              setSelectedPayment(payment);
                               setShowDeleteConfirm(true);
                             }}
                             className="p-1 text-red-600 hover:text-red-800 transition-colors"
@@ -354,7 +387,6 @@ const PropertyManagementDashboard: React.FC = () => {
         </div>
       </main>
 
-      {/* Payment Add/Edit Modal - NEW */}
       <PaymentFormModal
         isOpen={showAddEditModal}
         onClose={() => setShowAddEditModal(false)}
@@ -362,12 +394,11 @@ const PropertyManagementDashboard: React.FC = () => {
         initialData={selectedPayment}
       />
 
-      {/* Delete Confirmation Modal - NEW */}
       <DeleteConfirmationModal
         isOpen={showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(false)}
         onConfirm={handleDeletePayment}
-        itemName={selectedPayment?.tenant || 'this payment'} // Show tenant name in confirmation
+        itemName={selectedPayment?.tenant_name || 'this payment'}
       />
     </div>
   );

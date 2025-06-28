@@ -1,27 +1,34 @@
-// ... (existing interfaces)
-
 import { X } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Payment } from './Payments';
+import Database from '@tauri-apps/plugin-sql';
 
-// Initial form state for adding/editing payments - NEW
-export const initialPaymentFormState: Omit<Payment, 'id'> = {
-  tenant: '',
-  unit: '',
-  property: '',
-  amount: 0,
-  date: new Date().toISOString().split('T')[0], // Current date for new payments
-  dueDate: '',
-  status: 'Pending',
-  method: 'Bank Transfer',
-  category: 'Rent',
+// Initial form state for adding/editing payments
+export const initialPaymentFormState: Omit<Payment, 'payment_id'> = {
+  tenant_id: 0, // Default to 0, will be updated with a select
+  unit_id: 0, // Default to 0, will be updated with a select
+  property_id: 0, // Default to 0, will be updated with a select
+  amount_paid: 0,
+  payment_date: new Date().toISOString().split('T')[0], // Current date for new payments
+  due_date: '',
+  payment_status: 'Pending',
+  payment_method: 'Bank Transfer',
+  payment_category: 'Rent',
+  receipt_number: undefined,
+  transaction_reference: undefined,
+  remarks: undefined,
+  created_at: undefined,
+  updated_at: undefined,
+  tenant_name: undefined,
+  unit_number: undefined,
+  property_name: undefined,
 };
 
-// Component for adding/editing payments - NEW
+// Component for adding/editing payments
 export interface PaymentFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (payment: Omit<Payment, 'id'> | Payment) => void;
+  onSave: (payment: Omit<Payment, 'payment_id'> | Payment) => void;
   initialData?: Payment | null;
 }
 
@@ -31,14 +38,47 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
   onSave,
   initialData,
 }) => {
-  const [formData, setFormData] = useState<Omit<Payment, 'id'> | Payment>(
-    initialData || initialPaymentFormState
-  );
+  const [formData, setFormData] = useState<
+    Omit<Payment, 'payment_id'> | Payment
+  >(initialData || initialPaymentFormState);
+  const [tenants, setTenants] = useState<
+    { tenant_id: number; full_name: string }[]
+  >([]);
+  const [units, setUnits] = useState<
+    { unit_id: number; unit_number: string }[]
+  >([]);
+  const [properties, setProperties] = useState<
+    { property_id: number; name: string }[]
+  >([]);
 
   // Update form data when initialData changes (for editing)
   useEffect(() => {
     setFormData(initialData || initialPaymentFormState);
   }, [initialData]);
+
+  // Fetch tenants, units, and properties for dropdowns
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const db = await Database.load('sqlite:test4.db');
+        const dbTenants = await db.select(`
+          SELECT tenant_id, full_name FROM tenants
+        `);
+        const dbUnits = await db.select(`
+          SELECT unit_id, unit_number FROM units
+        `);
+        const dbProperties = await db.select(`
+          SELECT property_id, name FROM properties
+        `);
+        setTenants(dbTenants);
+        setUnits(dbUnits);
+        setProperties(dbProperties);
+      } catch (err) {
+        console.error('Error fetching data:', err);
+      }
+    }
+    if (isOpen) fetchData();
+  }, [isOpen]);
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -49,7 +89,15 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
     console.log('handleChange', name, value);
     setFormData((prevData) => ({
       ...prevData,
-      [name]: name === 'amount' ? parseFloat(value) : value,
+      [name]:
+        name === 'amount_paid' ||
+        name === 'tenant_id' ||
+        name === 'unit_id' ||
+        name === 'property_id'
+          ? parseInt(value) || 0
+          : name === 'payment_date' || name === 'due_date'
+          ? value
+          : value,
     }));
   };
 
@@ -78,84 +126,104 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label
-              htmlFor="tenant"
+              htmlFor="tenant_id"
               className="block text-sm font-medium text-gray-700"
             >
-              Tenant Name
+              Tenant
             </label>
-            <input
-              type="text"
-              id="tenant"
-              name="tenant"
-              value={formData.tenant}
+            <select
+              id="tenant_id"
+              name="tenant_id"
+              value={formData.tenant_id || ''}
               onChange={handleChange}
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               required
-            />
+            >
+              <option value="">Select Tenant</option>
+              {tenants.map((tenant) => (
+                <option key={tenant.tenant_id} value={tenant.tenant_id}>
+                  {tenant.full_name}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <label
-              htmlFor="property"
+              htmlFor="property_id"
               className="block text-sm font-medium text-gray-700"
             >
-              Property Name
+              Property
             </label>
-            <input
-              type="text"
-              id="property"
-              name="property"
-              value={formData.property}
+            <select
+              id="property_id"
+              name="property_id"
+              value={formData.property_id || ''}
               onChange={handleChange}
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               required
-            />
+            >
+              <option value="">Select Property</option>
+              {properties.map((property) => (
+                <option key={property.property_id} value={property.property_id}>
+                  {property.name}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <label
-              htmlFor="unit"
+              htmlFor="unit_id"
               className="block text-sm font-medium text-gray-700"
             >
-              Unit Number
+              Unit
             </label>
-            <input
-              type="text"
-              id="unit"
-              name="unit"
-              value={formData.unit}
+            <select
+              id="unit_id"
+              name="unit_id"
+              value={formData.unit_id || ''}
               onChange={handleChange}
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               required
-            />
+            >
+              <option value="">Select Unit</option>
+              {units.map((unit) => (
+                <option key={unit.unit_id} value={unit.unit_id}>
+                  {unit.unit_number}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <label
-              htmlFor="amount"
+              htmlFor="amount_paid"
               className="block text-sm font-medium text-gray-700"
             >
               Amount
             </label>
             <input
               type="number"
-              id="amount"
-              name="amount"
-              value={formData.amount}
+              id="amount_paid"
+              name="amount_paid"
+              value={formData.amount_paid || 0}
               onChange={handleChange}
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               required
+              min="0"
+              step="0.01"
             />
           </div>
           <div>
             <label
-              htmlFor="date"
+              htmlFor="payment_date"
               className="block text-sm font-medium text-gray-700"
             >
               Payment Date
             </label>
             <input
               type="date"
-              id="date"
-              name="date"
-              value={formData.date}
+              id="payment_date"
+              name="payment_date"
+              value={formData.payment_date || ''}
               onChange={handleChange}
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               required
@@ -163,7 +231,7 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
           </div>
           <div>
             <label
-              htmlFor="dueDate"
+              htmlFor="due_date"
               className="block text-sm font-medium text-gray-700"
             >
               Due Date
@@ -171,8 +239,8 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
             <input
               type="date"
               id="due_date"
-              name="dueDate"
-              value={formData.dueDate}
+              name="due_date"
+              value={formData.due_date || ''}
               onChange={handleChange}
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               required
@@ -180,65 +248,66 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
           </div>
           <div>
             <label
-              htmlFor="status"
+              htmlFor="payment_status"
               className="block text-sm font-medium text-gray-700"
             >
               Status
             </label>
             <select
-              id="status"
-              name="status"
-              value={formData.status}
+              id="payment_status"
+              name="payment_status"
+              value={formData.payment_status}
               onChange={handleChange}
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               required
             >
               <option value="Paid">Paid</option>
               <option value="Pending">Pending</option>
-              <option value="Late">Late</option>
               <option value="Overdue">Overdue</option>
             </select>
           </div>
           <div>
             <label
-              htmlFor="method"
+              htmlFor="payment_method"
               className="block text-sm font-medium text-gray-700"
             >
               Payment Method
             </label>
             <select
-              id="method"
-              name="method"
-              value={formData.method}
+              id="payment_method"
+              name="payment_method"
+              value={formData.payment_method}
               onChange={handleChange}
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               required
             >
+              <option value="Cash">Cash</option>
               <option value="Bank Transfer">Bank Transfer</option>
               <option value="Credit Card">Credit Card</option>
+              <option value="Mobile Money">Mobile Money</option>
               <option value="Check">Check</option>
-              <option value="Cash">Cash</option>
+              <option value="Other">Other</option>
             </select>
           </div>
           <div>
             <label
-              htmlFor="category"
+              htmlFor="payment_category"
               className="block text-sm font-medium text-gray-700"
             >
               Category
             </label>
             <select
-              id="category"
-              name="category"
-              value={formData.category}
+              id="payment_category"
+              name="payment_category"
+              value={formData.payment_category}
               onChange={handleChange}
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               required
             >
               <option value="Rent">Rent</option>
               <option value="Utilities">Utilities</option>
-              <option value="Maintenance">Maintenance</option>
               <option value="Deposit">Deposit</option>
+              <option value="Other">Other</option>
             </select>
           </div>
           <div className="flex justify-end space-x-3 mt-6">
