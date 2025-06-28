@@ -171,6 +171,7 @@ const getAmenityIcon = (amenity) => {
 const Unit = () => {
   // Main state for units and filtered view
   const [units, setUnits] = useState([]);
+  const [properties, setProperties] = useState([]);
   const [filteredUnits, setFilteredUnits] = useState([]);
 
   const [loading, setLoading] = useState(false);
@@ -181,47 +182,57 @@ const Unit = () => {
   const [editingUnitId, setEditingUnitId] = useState(null); // Track unit ID being edited
 
   useEffect(() => {
+    async function fetchProperties() {
+      let db;
+      try {
+        setLoading(true);
+        db = await Database.load('sqlite:test4.db');
+        const dbProperties = await db.select(`
+        SELECT property_id, name FROM properties
+      `);
+        setProperties(dbProperties);
+      } catch (err) {
+        console.error('Error fetching properties:', err);
+        setError('Failed to load properties.');
+      } finally {
+        setLoading(false);
+        if (db) await db.close();
+      }
+    }
+    fetchProperties();
+
     async function fetchUnits() {
       let db;
       try {
         setLoading(true);
         db = await Database.load('sqlite:test4.db');
-        await db.execute(`
-        CREATE TABLE IF NOT EXISTS units (
-          id TEXT PRIMARY KEY,
-          unit_number TEXT NOT NULL,
-          property TEXT NOT NULL,
-          block TEXT,
-          floor INTEGER,
-          status TEXT,
-          unit_type TEXT,
-          bedrooms INTEGER,
-          bathrooms INTEGER,
-          square_footage INTEGER,
-          rent REAL,
-          security_deposit REAL,
-          amenities TEXT,
-          photos TEXT,
-          tenant_info_id TEXT,
-          notes TEXT
-        )
-      `);
+
         const dbUnits = await db.select(`
-        SELECT * FROM units
-        LEFT JOIN tenants ON units.tenant_info_id = tenants.id
-      `);
+  SELECT u.unit_id, u.unit_number, u.property_id, u.block_label, u.floor_number, u.unit_status, u.unit_type, u.bedroom_count, u.bathroom_count, u.monthly_rent, u.security_deposit, u.tenant_id, u.notes,
+         t.full_name AS tenant_name, t.lease_end_date
+  FROM units u
+  LEFT JOIN tenants t ON u.tenant_id = t.tenant_id
+`);
         console.log('Fetched units from DB:', dbUnits); // Add log
         const processedUnits = dbUnits.map((unit) => ({
-          ...unit,
-          amenities: unit.amenities
-            ? unit.amenities.split(',').filter(Boolean)
-            : [],
-          photos: unit.photos ? unit.photos.split(',').filter(Boolean) : [],
-          tenantInfo: unit.tenant_info_id
+          unit_id: unit.unit_id,
+          unit_number: unit.unit_number,
+          property_id: unit.property_id,
+          block_label: unit.block_label,
+          floor_number: unit.floor_number,
+          unit_status: unit.unit_status,
+          unit_type: unit.unit_type,
+          bedroom_count: unit.bedroom_count,
+          bathroom_count: unit.bathroom_count,
+          monthly_rent: unit.monthly_rent,
+          security_deposit: unit.security_deposit,
+          tenant_id: unit.tenant_id,
+          notes: unit.notes,
+          tenantInfo: unit.tenant_id
             ? {
-                id: unit.tenant_info_id,
-                name: unit.tenant_name,
-                leaseEndDate: unit.lease_end_date,
+                id: unit.tenant_id,
+                name: unit.tenant_name || '',
+                leaseEndDate: unit.lease_end_date || '',
               }
             : null,
         }));
@@ -248,18 +259,16 @@ const Unit = () => {
   const [isAddUnitModalOpen, setIsAddUnitModalOpen] = useState(false);
   const [newUnitData, setNewUnitData] = useState({
     unit_number: '',
-    property: '',
-    block: '',
-    floor: '',
-    status: 'Available',
-    type: '',
-    bedrooms: '',
-    bathrooms: '',
-    squareFootage: '',
-    rent: '',
-    securityDeposit: '',
-    amenities: [],
-    photos: [],
+    property_id: '',
+    block_label: '',
+    floor_number: '',
+    unit_status: 'Available',
+    unit_type: '',
+    bedroom_count: '',
+    bathroom_count: '',
+    monthly_rent: '',
+    security_deposit: '',
+    tenant_id: '',
     notes: '',
   });
 
@@ -272,32 +281,30 @@ const Unit = () => {
   const availableUnitTypes = [...new Set(mockUnits.map((u) => u.type))].sort();
 
   // Effect to filter units whenever search term or filters change
+
   useEffect(() => {
     let currentFilteredUnits = units.filter((unit) => {
-      // Search by unit number, property name, or block
       const matchesSearch =
         searchTerm === '' ||
         unit.unit_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        unit.property.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        unit.block.toLowerCase().includes(searchTerm.toLowerCase());
-
-      // Filter by status
+        // Assuming property_id needs a mock property name mapping
+        mockUnits
+          .find((m) => m.unit_id === `U${unit.unit_id}`)
+          ?.property.toLowerCase()
+          .includes(searchTerm.toLowerCase()) ||
+        unit.block_label?.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesStatus =
-        filterStatus === 'All' || unit.status === filterStatus;
-
-      // Filter by property
+        filterStatus === 'All' || unit.unit_status === filterStatus;
       const matchesProperty =
-        filterProperty === 'All' || unit.property === filterProperty;
-
-      // Filter by unit type
+        filterProperty === 'All' ||
+        mockUnits.find((m) => m.unit_id === `U${unit.unit_id}`)?.property ===
+          filterProperty;
       const matchesUnitType =
-        filterUnitType === 'All' || unit.type === filterUnitType;
-
+        filterUnitType === 'All' || unit.unit_type === filterUnitType;
       return (
         matchesSearch && matchesStatus && matchesProperty && matchesUnitType
       );
     });
-
     setFilteredUnits(currentFilteredUnits);
   }, [searchTerm, filterStatus, filterProperty, filterUnitType, units]);
 
@@ -306,77 +313,102 @@ const Unit = () => {
     try {
       db = await Database.load('sqlite:test4.db');
       setLoading(true);
+
+      // Validate property_id
+      const propertyCheck = await db.select(
+        `SELECT * FROM properties WHERE property_id = $1`,
+        [parseInt(unitData.property_id)]
+      );
+      console.log('propertyCheck', propertyCheck, properties);
+      console.log('unitData.property_id', unitData.property_id);
+      if (propertyCheck.length === 0 && unitData.property_id) {
+        throw new Error('Invalid property_id. Please select a valid property.');
+      }
+
+      // Validate tenant_id if provided
+      if (unitData.tenant_id) {
+        const tenantCheck = await db.select(
+          `SELECT tenant_id FROM tenants WHERE tenant_id = $1`,
+          [unitData.tenant_id]
+        );
+        if (tenantCheck.length === 0) {
+          throw new Error('Invalid tenant_id. Please enter a valid tenant ID.');
+        }
+      }
+
       const existingUnit = await db.select(
-        `SELECT id FROM units WHERE id = $1`,
-        [unitData.id || null]
+        `SELECT unit_id FROM units WHERE unit_id = $1`,
+        [unitData.unit_id]
       );
 
       if (existingUnit.length > 0) {
         await db.execute(
-          `UPDATE units SET unit_number = $1, property = $2, block = $3, floor = $4, status = $5, unit_type = $6, bedrooms = $7, bathrooms = $8, square_footage = $9, rent = $10, security_deposit = $11, amenities = $12, photos = $13, notes = $14, tenant_info_id = $15 WHERE id = $16`,
+          `UPDATE units SET unit_number = $1, property_id = $2, block_label = $3, 
+        floor_number = $4, unit_status = $5, unit_type = $6, bedroom_count = $7, 
+        bathroom_count = $8, monthly_rent = $9, security_deposit = $10, notes = $11, tenant_id = $12 WHERE unit_id = $13`,
           [
             unitData.unit_number,
-            unitData.property,
-            unitData.block,
-            unitData.floor,
-            unitData.status,
-            unitData.type,
-            unitData.bedrooms,
-            unitData.bathrooms,
-            unitData.squareFootage,
-            unitData.rent,
-            unitData.securityDeposit,
-            unitData?.amenities?.join(',') || '',
-            unitData?.photos?.join(',') || '',
+            unitData.property_id,
+            unitData.block_label,
+            unitData.floor_number,
+            unitData.unit_status,
+            unitData.unit_type,
+            unitData.bedroom_count,
+            unitData.bathroom_count,
+            unitData.monthly_rent,
+            unitData.security_deposit,
             unitData.notes,
-            null,
-            unitData.id,
+            unitData.tenant_id || null, // Nullable
+            unitData.unit_id,
           ]
         );
-        console.log('Unit updated successfully:', unitData.id);
       } else {
-        const newId = `U${String(units.length + 1).padStart(3, '0')}`;
         await db.execute(
-          `INSERT INTO units (id, unit_number, property, block, floor, status, unit_type, bedrooms, bathrooms, square_footage, rent, security_deposit, amenities, photos, tenant_info_id, notes) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
+          `INSERT INTO units (unit_number, property_id, block_label, 
+        floor_number, unit_status, unit_type, bedroom_count, bathroom_count, 
+        monthly_rent, security_deposit, notes, tenant_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
           [
-            newId,
             unitData.unit_number,
-            unitData.property,
-            unitData.block,
-            unitData.floor,
-            unitData.status,
-            unitData.type,
-            unitData.bedrooms,
-            unitData.bathrooms,
-            unitData.squareFootage,
-            unitData.rent,
-            unitData.securityDeposit,
-            unitData?.amenities?.join(',') || '',
-            unitData?.photos?.join(',') || '',
-            null,
+            unitData.property_id,
+            unitData.block_label,
+            unitData.floor_number,
+            unitData.unit_status,
+            unitData.unit_type,
+            unitData.bedroom_count,
+            unitData.bathroom_count,
+            unitData.monthly_rent,
+            unitData.security_deposit,
             unitData.notes,
+            unitData.tenant_id || null, // Nullable
           ]
         );
-        console.log('New unit added successfully:', newId);
       }
 
-      const dbUnits = await db.select(
-        `
-      SELECT * FROM units
-      LEFT JOIN tenants ON units.tenant_info_id = tenants.id
-      `
-      );
+      const dbUnits = await db.select(`
+      SELECT u.unit_id, u.unit_number, u.property_id, u.block_label, u.floor_number, u.unit_status, u.unit_type, u.bedroom_count, u.bathroom_count, u.monthly_rent, u.security_deposit, u.tenant_id, u.notes,
+             t.full_name AS tenant_name, t.lease_end_date
+      FROM units u
+      LEFT JOIN tenants t ON u.tenant_id = t.tenant_id
+    `);
       const processedUnits = dbUnits.map((unit) => ({
-        ...unit,
-        amenities: unit.amenities
-          ? unit.amenities.split(',').filter(Boolean)
-          : [],
-        photos: unit.photos ? unit.photos.split(',').filter(Boolean) : [],
-        tenantInfo: unit.tenant_info_id
+        unit_id: unit.unit_id,
+        unit_number: unit.unit_number,
+        property_id: unit.property_id,
+        block_label: unit.block_label,
+        floor_number: unit.floor_number,
+        unit_status: unit.unit_status,
+        unit_type: unit.unit_type,
+        bedroom_count: unit.bedroom_count,
+        bathroom_count: unit.bathroom_count,
+        monthly_rent: unit.monthly_rent,
+        security_deposit: unit.security_deposit,
+        tenant_id: unit.tenant_id,
+        notes: unit.notes,
+        tenantInfo: unit.tenant_id
           ? {
-              id: unit.tenant_info_id,
-              name: unit.tenant_name,
-              leaseEndDate: unit.lease_end_date,
+              id: unit.tenant_id,
+              name: unit.tenant_name || '',
+              leaseEndDate: unit.lease_end_date || '',
             }
           : null,
       }));
@@ -385,24 +417,22 @@ const Unit = () => {
       setIsAddUnitModalOpen(false);
       setNewUnitData({
         unit_number: '',
-        property: '',
-        block: '',
-        floor: '',
-        status: 'Available',
-        type: '',
-        bedrooms: '',
-        bathrooms: '',
-        squareFootage: '',
-        rent: '',
-        securityDeposit: '',
-        amenities: [],
-        photos: [],
+        property_id: '',
+        block_label: '',
+        floor_number: '',
+        unit_status: 'Available',
+        unit_type: '',
+        bedroom_count: '',
+        bathroom_count: '',
+        monthly_rent: '',
+        security_deposit: '',
+        tenant_id: '',
         notes: '',
       });
       setError('');
     } catch (err) {
       console.error('Error saving unit:', err);
-      setError('Failed to save unit.');
+      setError(err.message || 'Failed to save unit.');
     } finally {
       setLoading(false);
       if (db) await db.close();
@@ -411,23 +441,21 @@ const Unit = () => {
 
   const handleUpdateUnit = async (e) => {
     e.preventDefault();
-    const updatedUnit = { ...newUnitData, id: editingUnitId };
+    const updatedUnit = { ...newUnitData, unit_id: editingUnitId };
     await handleSaveUnit(updatedUnit);
     setIsAddUnitModalOpen(false);
     setNewUnitData({
       unit_number: '',
-      property: '',
-      block: '',
-      floor: '',
-      status: 'Available',
-      type: '',
-      bedrooms: '',
-      bathrooms: '',
-      squareFootage: '',
-      rent: '',
-      securityDeposit: '',
-      amenities: [],
-      photos: [],
+      property_id: '',
+      block_label: '',
+      floor_number: '',
+      unit_status: 'Available',
+      unit_type: '',
+      bedroom_count: '',
+      bathroom_count: '',
+      monthly_rent: '',
+      security_deposit: '',
+      tenant_id: '',
       notes: '',
     });
     setEditingUnitId(null);
@@ -439,28 +467,25 @@ const Unit = () => {
     e.preventDefault();
     console.log('Adding new unit with data:', newUnitData);
 
-    const newId = `U${String(units.length + 1).padStart(3, '0')}`;
-    const unitWithId = { ...newUnitData, id: newId, tenantInfo: null }; // New units are initially available
-    setUnits([...units, unitWithId]);
+    const newUnits = { ...newUnitData, tenantInfo: null }; // New units are initially available
+    setUnits([...units, newUnits]);
     setIsAddUnitModalOpen(false);
     setNewUnitData({
       unit_number: '',
-      property: '',
-      block: '',
-      floor: '',
-      status: 'Available',
-      type: '',
-      bedrooms: '',
-      bathrooms: '',
-      squareFootage: '',
-      rent: '',
-      securityDeposit: '',
-      amenities: [],
-      photos: [],
+      property_id: '',
+      block_label: '',
+      floor_number: '',
+      unit_status: 'Available',
+      unit_type: '',
+      bedroom_count: '',
+      bathroom_count: '',
+      monthly_rent: '',
+      security_deposit: '',
+      tenant_id: '',
       notes: '',
     });
     // INSERT INTO UNITS TABLE
-    handleSaveUnit(unitWithId);
+    handleSaveUnit(newUnits);
   };
 
   // Handle viewing unit details
@@ -472,24 +497,22 @@ const Unit = () => {
   // Handle editing a unit (placeholder for now, would open an edit modal)
   const handleEditUnit = (unitId) => {
     console.log('units', units);
-    console.log(`Attempting to edit unit with ID: ${unitId}`); // Add log
-    const unitToEdit = units.find((unit) => unit.unit_number === unitId);
+    console.log(`Attempting to edit unit with ID: ${unitId}`);
+    const unitToEdit = units.find((unit) => unit.unit_id === unitId);
     if (unitToEdit) {
-      console.log(`Found unit to edit:`, unitToEdit); // Add log
+      console.log(`Found unit to edit:`, unitToEdit);
       setNewUnitData({
         unit_number: unitToEdit.unit_number,
-        property: unitToEdit.property,
-        block: unitToEdit.block,
-        floor: unitToEdit.floor || '',
-        status: unitToEdit.status,
-        type: unitToEdit.type,
-        bedrooms: unitToEdit.bedrooms || '',
-        bathrooms: unitToEdit.bathrooms || '',
-        squareFootage: unitToEdit.squareFootage || '',
-        rent: unitToEdit.rent || '',
-        securityDeposit: unitToEdit.securityDeposit || '',
-        amenities: unitToEdit.amenities || [],
-        photos: unitToEdit.photos || [],
+        property_id: unitToEdit.property_id,
+        block_label: unitToEdit.block_label || '',
+        floor_number: unitToEdit.floor_number || '',
+        unit_status: unitToEdit.unit_status,
+        unit_type: unitToEdit.unit_type,
+        bedroom_count: unitToEdit.bedroom_count || '',
+        bathroom_count: unitToEdit.bathroom_count || '',
+        monthly_rent: unitToEdit.monthly_rent || '',
+        security_deposit: unitToEdit.security_deposit || '',
+        tenant_id: unitToEdit.tenant_id || '',
         notes: unitToEdit.notes || '',
       });
       setEditingUnitId(unitId);
@@ -501,7 +524,6 @@ const Unit = () => {
       setError(`Unit with ID ${unitId} not found`);
     }
   };
-
   // Handle deleting a unit
   const handleDeleteUnit = async (unit_number) => {
     if (
@@ -510,10 +532,8 @@ const Unit = () => {
       try {
         setLoading(true);
         const db = await Database.load('sqlite:test4.db');
-        await db.execute(`DELETE FROM units WHERE unit_number = $1`, [
-          unit_number,
-        ]);
-        setUnits(units.filter((unit) => unit.unit_number !== unit_number));
+        await db.execute(`DELETE FROM units WHERE unit_id = $1`, [unit_number]);
+        setUnits(units.filter((unit) => unit.unit_id !== unit_number));
         setError('');
       } catch (err) {
         console.error('Error deleting unit:', err);
@@ -526,18 +546,25 @@ const Unit = () => {
 
   // Unit Dashboard Stats
   const totalUnits = units.length;
-  const availableUnits = units.filter((u) => u.status === 'Available').length;
-  const occupiedUnits = units.filter((u) => u.status === 'Occupied').length;
-  const maintenanceUnits = units.filter(
-    (u) => u.status === 'Maintenance'
+  const availableUnits = units.filter(
+    (u) => u.unit_status === 'Available'
   ).length;
-  const reservedUnits = units.filter((u) => u.status === 'Reserved').length;
-
+  const occupiedUnits = units.filter(
+    (u) => u.unit_status === 'Occupied'
+  ).length;
+  const maintenanceUnits = units.filter(
+    (u) => u.unit_status === 'Maintenance'
+  ).length;
+  const reservedUnits = units.filter(
+    (u) => u.unit_status === 'Reserved'
+  ).length;
   const occupancyRate =
     totalUnits > 0 ? ((occupiedUnits / totalUnits) * 100).toFixed(1) : '0.0';
   const averageRent =
     totalUnits > 0
-      ? (units.reduce((sum, u) => sum + u.rent, 0) / totalUnits).toFixed(2)
+      ? (
+          units.reduce((sum, u) => sum + (u.monthly_rent || 0), 0) / totalUnits
+        ).toFixed(2)
       : '0.00';
 
   // Helper to get status badge color
@@ -734,7 +761,7 @@ const Unit = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredUnits.map((unit, index) => (
               <div
-                key={unit.unit_number}
+                key={unit.unit_id}
                 className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden transform hover:scale-[1.02] transition duration-200 ease-in-out"
               >
                 {unit.photos && unit.photos.length > 0 && (
@@ -755,26 +782,29 @@ const Unit = () => {
                     </h3>
                     <span
                       className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(
-                        unit.status
+                        unit.unit_status
                       )}`}
                     >
-                      {unit.status}
+                      {unit.unit_status}
                     </span>
                   </div>
                   <p className="text-sm text-gray-600 flex items-center gap-2 mb-1">
-                    <Building2 className="w-4 h-4" /> {unit.property}, Block{' '}
-                    {unit.block}, Floor {unit.floor}
+                    <Building2 className="w-4 h-4" />{' '}
+                    {mockUnits.find((m) => m.unit_id === `U${unit.unit_id}`)
+                      ?.property || 'Unknown'}
+                    , Block {unit.block_label}, Floor {unit.floor_number}
                   </p>
                   <p className="text-sm text-gray-600 flex items-center gap-2 mb-1">
-                    <Bed className="w-4 h-4" /> {unit.bedrooms} BR /{' '}
-                    <Bath className="w-4 h-4" /> {unit.bathrooms} BA (
-                    {unit.type})
+                    <Bed className="w-4 h-4" /> {unit.bedroom_count} BR /{' '}
+                    <Bath className="w-4 h-4" /> {unit.bathroom_count} BA (
+                    {unit.unit_type})
                   </p>
                   <p className="text-sm text-gray-600 flex items-center gap-2 mb-1">
                     <Ruler className="w-4 h-4" /> {unit.squareFootage} sqft
                   </p>
                   <p className="text-sm text-gray-600 flex items-center gap-2 mt-2">
-                    <DollarSign className="w-4 h-4" /> Rent: ${unit.rent}/month
+                    <DollarSign className="w-4 h-4" /> Rent: $
+                    {unit.monthly_rent}/month
                   </p>
                   {unit.tenantInfo ? (
                     <p className="text-sm text-gray-600 flex items-center gap-2 mt-2">
@@ -797,14 +827,14 @@ const Unit = () => {
                     <Eye className="w-4 h-4 mr-1 inline-block" /> View
                   </button>
                   <button
-                    onClick={() => handleEditUnit(unit.unit_number)}
+                    onClick={() => handleEditUnit(unit.unit_id)}
                     className={secondaryButtonClass}
                     aria-label="Edit Unit"
                   >
                     <Edit className="w-4 h-4 mr-1 inline-block" /> Edit
                   </button>
                   <button
-                    onClick={() => handleDeleteUnit(unit.unit_number)}
+                    onClick={() => handleDeleteUnit(unit.unit_id)}
                     className={`${secondaryButtonClass} text-red-600 hover:bg-red-100`}
                     aria-label="Delete Unit"
                   >
@@ -844,15 +874,18 @@ const Unit = () => {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredUnits.map((unit) => (
-                  <tr key={unit.id} className="hover:bg-gray-50">
+                  <tr key={unit.unit_id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
-                        {unit.unit_number}
+                        {unit.unit_id}
                       </div>
-                      <div className="text-sm text-gray-500">ID: {unit.id}</div>
+                      <div className="text-sm text-gray-500">
+                        ID: {unit.unit_id}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {unit.property} (Block {unit.block}, Floor {unit.floor})
+                      {unit.property_id} (Block {unit.block_id}, Floor{' '}
+                      {unit.floor})
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {unit.type} ({unit.bedrooms}BR/{unit.bathrooms}BA)
@@ -871,7 +904,7 @@ const Unit = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {unit.tenantInfo
-                        ? `${unit.tenantInfo.name} (ends: ${unit.tenantInfo.leaseEndDate})`
+                        ? `${unit.tenantInfo.name} (ends: ${unit.tenantInfo.lease_end_date})`
                         : 'None'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -918,7 +951,6 @@ const Unit = () => {
               onSubmit={modalMode === 'edit' ? handleUpdateUnit : handleAddUnit}
               className="grid grid-cols-1 md:grid-cols-2 gap-6"
             >
-              {/* Unit Identification */}
               <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label
@@ -943,189 +975,173 @@ const Unit = () => {
                 </div>
                 <div>
                   <label
-                    htmlFor="property"
+                    htmlFor="property_id"
                     className="block text-sm font-medium text-gray-700 mb-1"
                   >
                     Property <span className="text-red-500">*</span>
                   </label>
                   <select
-                    id="property"
+                    id="property_id"
                     className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                    value={newUnitData.property}
+                    value={newUnitData.property_id}
                     onChange={(e) =>
                       setNewUnitData({
                         ...newUnitData,
-                        property: e.target.value,
+                        property_id: e.target.value,
                       })
                     }
                     required
                   >
                     <option value="">Select Property</option>
-                    {availableProperties.map((prop) => (
-                      <option key={prop} value={prop}>
-                        {prop}
+                    {properties.map((prop) => (
+                      <option key={prop.property_id} value={prop.property_id}>
+                        {prop.name}
                       </option>
                     ))}
                   </select>
                 </div>
                 <div>
                   <label
-                    htmlFor="block"
+                    htmlFor="block_label"
                     className="block text-sm font-medium text-gray-700 mb-1"
                   >
                     Block
                   </label>
                   <input
                     type="text"
-                    id="block"
+                    id="block_label"
                     className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                    value={newUnitData.block}
+                    value={newUnitData.block_label}
                     onChange={(e) =>
-                      setNewUnitData({ ...newUnitData, block: e.target.value })
+                      setNewUnitData({
+                        ...newUnitData,
+                        block_label: e.target.value,
+                      })
                     }
                   />
                 </div>
                 <div>
                   <label
-                    htmlFor="floor"
+                    htmlFor="floor_number"
                     className="block text-sm font-medium text-gray-700 mb-1"
                   >
                     Floor
                   </label>
                   <input
                     type="number"
-                    id="floor"
+                    id="floor_number"
                     className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                    value={newUnitData.floor}
+                    value={newUnitData.floor_number}
                     onChange={(e) =>
                       setNewUnitData({
                         ...newUnitData,
-                        floor: parseInt(e.target.value) || '',
+                        floor_number: parseInt(e.target.value) || '',
                       })
                     }
                   />
                 </div>
-              </div>
-
-              <div>
-                <label
-                  htmlFor="status"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  Status <span className="text-red-500">*</span>
-                </label>
-                <select
-                  id="status"
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  value={newUnitData.status}
-                  onChange={(e) =>
-                    setNewUnitData({ ...newUnitData, status: e.target.value })
-                  }
-                  required
-                >
-                  <option value="Available">Available</option>
-                  <option value="Occupied">Occupied</option>
-                  <option value="Maintenance">Maintenance</option>
-                  <option value="Reserved">Reserved</option>
-                </select>
-              </div>
-              {/* Unit Details */}
-              <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label
-                    htmlFor="type"
+                    htmlFor="unit_status"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    Status <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    id="unit_status"
+                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    value={newUnitData.unit_status}
+                    onChange={(e) =>
+                      setNewUnitData({
+                        ...newUnitData,
+                        unit_status: e.target.value,
+                      })
+                    }
+                    required
+                  >
+                    <option value="Available">Available</option>
+                    <option value="Occupied">Occupied</option>
+                    <option value="Maintenance">Maintenance</option>
+                    <option value="Reserved">Reserved</option>
+                  </select>
+                </div>
+                <div>
+                  <label
+                    htmlFor="unit_type"
                     className="block text-sm font-medium text-gray-700 mb-1"
                   >
                     Unit Type <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
-                    id="type"
-                    placeholder="e.g., 2BR/2BA, Studio"
+                    id="unit_type"
                     className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                    value={newUnitData.type}
+                    value={newUnitData.unit_type}
                     onChange={(e) =>
-                      setNewUnitData({ ...newUnitData, type: e.target.value })
+                      setNewUnitData({
+                        ...newUnitData,
+                        unit_type: e.target.value,
+                      })
                     }
                     required
                   />
                 </div>
                 <div>
                   <label
-                    htmlFor="bedrooms"
+                    htmlFor="bedroom_count"
                     className="block text-sm font-medium text-gray-700 mb-1"
                   >
                     Bedrooms
                   </label>
                   <input
                     type="number"
-                    id="bedrooms"
+                    id="bedroom_count"
                     className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                    value={newUnitData.bedrooms}
+                    value={newUnitData.bedroom_count}
                     onChange={(e) =>
                       setNewUnitData({
                         ...newUnitData,
-                        bedrooms: parseInt(e.target.value) || '',
+                        bedroom_count: parseInt(e.target.value) || '',
                       })
                     }
                   />
                 </div>
                 <div>
                   <label
-                    htmlFor="bathrooms"
+                    htmlFor="bathroom_count"
                     className="block text-sm font-medium text-gray-700 mb-1"
                   >
                     Bathrooms
                   </label>
                   <input
                     type="number"
-                    id="bathrooms"
+                    id="bathroom_count"
                     className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                    value={newUnitData.bathrooms}
+                    value={newUnitData.bathroom_count}
                     onChange={(e) =>
                       setNewUnitData({
                         ...newUnitData,
-                        bathrooms: parseInt(e.target.value) || '',
+                        bathroom_count: parseInt(e.target.value) || '',
                       })
                     }
                   />
                 </div>
                 <div>
                   <label
-                    htmlFor="squareFootage"
-                    className="block text-sm font-medium text-gray-700 mb-1"
-                  >
-                    Square Footage
-                  </label>
-                  <input
-                    type="number"
-                    id="squareFootage"
-                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                    value={newUnitData.squareFootage}
-                    onChange={(e) =>
-                      setNewUnitData({
-                        ...newUnitData,
-                        squareFootage: parseInt(e.target.value) || '',
-                      })
-                    }
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="rent"
+                    htmlFor="monthly_rent"
                     className="block text-sm font-medium text-gray-700 mb-1"
                   >
                     Monthly Rent <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="number"
-                    id="rent"
+                    id="monthly_rent"
                     className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                    value={newUnitData.rent}
+                    value={newUnitData.monthly_rent}
                     onChange={(e) =>
                       setNewUnitData({
                         ...newUnitData,
-                        rent: parseFloat(e.target.value) || '',
+                        monthly_rent: parseFloat(e.target.value) || '',
                       })
                     }
                     required
@@ -1133,107 +1149,41 @@ const Unit = () => {
                 </div>
                 <div>
                   <label
-                    htmlFor="securityDeposit"
+                    htmlFor="security_deposit"
                     className="block text-sm font-medium text-gray-700 mb-1"
                   >
                     Security Deposit
                   </label>
                   <input
                     type="number"
-                    id="securityDeposit"
+                    id="security_deposit"
                     className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                    value={newUnitData.securityDeposit}
+                    value={newUnitData.security_deposit}
                     onChange={(e) =>
                       setNewUnitData({
                         ...newUnitData,
-                        securityDeposit: parseFloat(e.target.value) || '',
+                        security_deposit: parseFloat(e.target.value) || '',
                       })
                     }
                   />
                 </div>
-              </div>
 
-              {/* Photos (simple text input for URLs) */}
-              <div className="md:col-span-2">
-                <label
-                  htmlFor="photos"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  Photo URLs (comma-separated, optional)
-                </label>
-                <input
-                  type="text"
-                  id="photos"
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  value={newUnitData.photos.join(',')}
-                  onChange={(e) =>
-                    setNewUnitData({
-                      ...newUnitData,
-                      photos: e.target.value
-                        .split(',')
-                        .map((url) => url.trim())
-                        .filter((url) => url !== ''),
-                    })
-                  }
-                />
-              </div>
-
-              {/* Notes */}
-              <div className="md:col-span-2">
-                <label
-                  htmlFor="notes"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  Notes
-                </label>
-                <textarea
-                  id="notes"
-                  rows="3"
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  value={newUnitData.notes}
-                  onChange={(e) =>
-                    setNewUnitData({ ...newUnitData, notes: e.target.value })
-                  }
-                ></textarea>
-              </div>
-
-              {/* Amenities - Simple Multi-select */}
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Amenities
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    'Parking',
-                    'AC',
-                    'Balcony',
-                    'Pool Access',
-                    'Gym',
-                    'Washer/Dryer',
-                    'Pet Friendly',
-                    'Wifi',
-                    'Coffee',
-                  ].map((amenity) => (
-                    <button
-                      key={amenity}
-                      type="button"
-                      className={`flex items-center gap-2 px-3 py-1 rounded-full border ${
-                        newUnitData.amenities.includes(amenity)
-                          ? 'bg-blue-100 border-blue-500 text-blue-800'
-                          : 'bg-gray-100 border-gray-300 text-gray-700'
-                      } hover:bg-blue-50 transition duration-200`}
-                      onClick={() => {
-                        setNewUnitData((prev) => ({
-                          ...prev,
-                          amenities: prev.amenities.includes(amenity)
-                            ? prev.amenities.filter((a) => a !== amenity)
-                            : [...prev.amenities, amenity],
-                        }));
-                      }}
-                    >
-                      {getAmenityIcon(amenity)} {amenity}
-                    </button>
-                  ))}
+                <div className="md:col-span-2">
+                  <label
+                    htmlFor="notes"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    Notes
+                  </label>
+                  <textarea
+                    id="notes"
+                    rows="3"
+                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    value={newUnitData.notes}
+                    onChange={(e) =>
+                      setNewUnitData({ ...newUnitData, notes: e.target.value })
+                    }
+                  ></textarea>
                 </div>
               </div>
 
