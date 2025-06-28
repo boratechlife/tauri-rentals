@@ -78,7 +78,7 @@ const ExpensePage: React.FC = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const db = await Database.load('sqlite:test.db');
+      const db = await Database.load('sqlite:test3.db');
 
       const dbExpenses = await db.select(
         `SELECT
@@ -119,7 +119,7 @@ const ExpensePage: React.FC = () => {
 
   const handleEditExpenseSubmit = async (editedExpenseData: Expense) => {
     try {
-      const db = await Database.load('sqlite:test.db');
+      const db = await Database.load('sqlite:test3.db');
       const result = await db.execute(
         `UPDATE expenses
          SET amount = $1, category = $2, description = $3, date = $4, unit_id = $5, payment_method = $6, vendor = $7
@@ -161,7 +161,7 @@ const ExpensePage: React.FC = () => {
       return;
     }
     try {
-      const db = await Database.load('sqlite:test.db');
+      const db = await Database.load('sqlite:test3.db');
       const result = await db.execute(`DELETE FROM expenses WHERE id = $1;`, [
         id,
       ]);
@@ -176,7 +176,7 @@ const ExpensePage: React.FC = () => {
 
   const handleAddExpenseSubmit = async (newExpenseData: NewExpense) => {
     try {
-      const db = await Database.load('sqlite:test.db');
+      const db = await Database.load('sqlite:test3.db');
       // Generate a new UUID for the expense ID (you might have a UUID generation utility)
       const newId = crypto.randomUUID(); // Requires crypto polyfill or similar
       const result = await db.execute(

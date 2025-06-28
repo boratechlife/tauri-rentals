@@ -82,7 +82,7 @@ const PropertiesPage = () => {
     async function fetchProperties() {
       try {
         setLoading(true);
-        const db = await Database.load('sqlite:test.db');
+        const db = await Database.load('sqlite:test3.db');
         // Adjust column names to match your 'properties' and 'units' table schema
         const dbProperties = await db.select(
           `SELECT
@@ -442,7 +442,7 @@ const PropertiesPage = () => {
   const handleConfirmDelete = async () => {
     let db;
     try {
-      db = await Database.load('sqlite:test.db');
+      db = await Database.load('sqlite:test3.db');
       setLoading(true);
       await db.execute(`DELETE FROM properties WHERE id = $1`, [
         deletingPropertyId,
@@ -471,7 +471,7 @@ const PropertiesPage = () => {
   const handleSubmit = async () => {
     let db;
     try {
-      db = await Database.load('sqlite:test.db');
+      db = await Database.load('sqlite:test3.db');
       setLoading(true);
       const existingProperty = await db.select(
         `SELECT id FROM properties WHERE id = $1`,

@@ -38,7 +38,7 @@ const TenantsList: React.FC = () => {
   async function fetchTenants() {
     try {
       setLoading(true);
-      const db = await Database.load('sqlite:test.db');
+      const db = await Database.load('sqlite:test3.db');
       // Adjust column names to match your 'tenants' and 'units' table schema
       const dbTenants = await db.select(
         `SELECT
@@ -62,7 +62,7 @@ const TenantsList: React.FC = () => {
 
   // Step 9: Implement Delete Functionality with Confirmation Modal - MODIFIED
   const handleDeleteTenant = async () => {
-    const db = await Database.load('sqlite:test.db');
+    const db = await Database.load('sqlite:test3.db');
 
     setLoading(true);
     try {
@@ -85,7 +85,7 @@ const TenantsList: React.FC = () => {
   };
 
   const handleSaveTenant = async (tenantData: Omit<Tenant, 'id'> | Tenant) => {
-    const db = await Database.load('sqlite:test.db');
+    const db = await Database.load('sqlite:test3.db');
 
     setLoading(true);
     try {

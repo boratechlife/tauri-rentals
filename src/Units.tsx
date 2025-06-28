@@ -185,7 +185,7 @@ const Unit = () => {
       let db;
       try {
         setLoading(true);
-        db = await Database.load('sqlite:test.db');
+        db = await Database.load('sqlite:test3.db');
         await db.execute(`
         CREATE TABLE IF NOT EXISTS units (
           id TEXT PRIMARY KEY,
@@ -304,7 +304,7 @@ const Unit = () => {
   const handleSaveUnit = async (unitData) => {
     let db;
     try {
-      db = await Database.load('sqlite:test.db');
+      db = await Database.load('sqlite:test3.db');
       setLoading(true);
       const existingUnit = await db.select(
         `SELECT id FROM units WHERE id = $1`,
@@ -509,7 +509,7 @@ const Unit = () => {
     ) {
       try {
         setLoading(true);
-        const db = await Database.load('sqlite:test.db');
+        const db = await Database.load('sqlite:test3.db');
         await db.execute(`DELETE FROM units WHERE unit_number = $1`, [
           unit_number,
         ]);
