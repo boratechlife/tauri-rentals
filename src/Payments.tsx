@@ -31,7 +31,7 @@ export interface Payment {
   property_name?: string; // Derived from properties table
 }
 
-interface Tenant {
+export interface Tenant {
   tenant_id: number;
   full_name: string;
   phone_number: string;

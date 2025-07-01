@@ -3,10 +3,7 @@ import Database from '@tauri-apps/plugin-sql';
 import {
   Home,
   Search,
-  Filter,
   Plus,
-  Grid,
-  List,
   Eye,
   Edit,
   Trash2,
@@ -149,6 +146,7 @@ const Unit = () => {
       } catch (err) {
         console.error('Error fetching properties:', err);
         setError('Failed to load properties.');
+        console.log('Error details:', error);
       } finally {
         setLoading(false);
         if (db) await db.close();
@@ -253,21 +251,7 @@ const Unit = () => {
     setFilteredUnits(currentFilteredUnits);
   }, [searchTerm, filterStatus, filterProperty, filterUnitType, units]);
 
-  const handleSaveUnit = async (unitData: {
-    unit_id?: number;
-    unit_number: string;
-    property_id: string;
-    block_label: string;
-    floor_number: string;
-    unit_status: string;
-    unit_type: string;
-    bedroom_count: string;
-    bathroom_count: string;
-    monthly_rent: string;
-    security_deposit: string;
-    tenant_id: string;
-    notes: string;
-  }) => {
+  const handleSaveUnit = async (unitData: any) => {
     let db;
     try {
       db = await Database.load('sqlite:test4.db');
@@ -552,6 +536,14 @@ const Unit = () => {
     'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
   const modalContentClass =
     'bg-white p-6 rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto w-full max-w-3xl transform transition-all duration-300 ease-in-out scale-95';
+
+  {
+    loading && (
+      <div className="fixed inset-0 bg-white bg-opacity-75 flex items-center justify-center z-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans text-gray-900 antialiased p-4 sm:p-6 lg:p-8">

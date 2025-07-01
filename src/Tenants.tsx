@@ -39,7 +39,7 @@ const TenantsList: React.FC = () => {
     try {
       setLoading(true);
       const db = await Database.load('sqlite:test4.db');
-      const dbTenants = await db.select(`
+      const dbTenants: any = await db.select(`
         SELECT 
           t.tenant_id, t.full_name, t.email, t.phone_number, t.status,
           t.unit_id, t.rent_amount, t.lease_start_date, t.lease_end_date,

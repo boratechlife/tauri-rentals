@@ -38,7 +38,7 @@ const PropertiesPage = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
-  const [blocks, setBlocks] = useState<string[]>(['all']); // Populated with 'all'
+  // const [blocks, setBlocks] = useState<string[]>(['all']); // Populated with 'all'
   const [error, setError] = useState<string | null>(null);
   const [types, setTypes] = useState<string[]>(['all']); // Populated with 'all'
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
@@ -98,6 +98,8 @@ const PropertiesPage = () => {
         console.log('Properties fetched successfully:', dbProperties);
       } catch (err) {
         console.error('Error fetching properties:', err);
+        console.log('Error details:', error);
+        console.log('Loading', loading);
         setError('Failed to get properties - check console');
       } finally {
         setLoading(false);

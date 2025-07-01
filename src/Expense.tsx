@@ -134,6 +134,7 @@ const ExpensePage: React.FC = () => {
     } catch (err) {
       console.error('Error fetching data:', err);
       setError('Failed to get data - check console');
+      console.log('Error details:', error);
     } finally {
       setLoading(false);
     }
@@ -329,6 +330,14 @@ const ExpensePage: React.FC = () => {
     setIsEditing(true);
     setShowAddExpense(true);
   };
+
+  {
+    loading && (
+      <div className="fixed inset-0 bg-white bg-opacity-75 flex items-center justify-center z-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">

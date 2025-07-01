@@ -18,7 +18,7 @@ type StatsCard = {
   color: string;
 };
 
-type Payment = {
+export type Payment = {
   payment_id: string;
   tenant_id: string;
   unit_id: string;

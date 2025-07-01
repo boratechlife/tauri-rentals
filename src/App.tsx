@@ -1,9 +1,8 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
+import { useState } from 'react';
+import reactLogo from './assets/react.svg';
 
 function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
+  const [greetMsg] = useState('');
 
   return (
     <main className="container">
@@ -29,14 +28,8 @@ function App() {
         className="row"
         onSubmit={(e) => {
           e.preventDefault();
-         
         }}
       >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
         <button type="submit">Greet</button>
       </form>
       <p>{greetMsg}</p>

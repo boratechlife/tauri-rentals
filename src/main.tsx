@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-import App from './App';
+
 import { Routes, Route } from 'react-router-dom';
 import PropertyManagerDashboard from './Dashboard';
 import PropertiesPage from './Property';
