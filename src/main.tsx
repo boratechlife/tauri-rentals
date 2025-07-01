@@ -1,19 +1,20 @@
-import React from "react";
-import ReactDOM from "react-dom/client";
-import { BrowserRouter } from "react-router-dom";
-import App from "./App";
-import { Routes, Route } from "react-router-dom";
-import PropertyManagerDashboard from "./Dashboard";
-import PropertiesPage from "./Property";
-import Tenants from "./Tenants";
-import "./App.css";
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
+import App from './App';
+import { Routes, Route } from 'react-router-dom';
+import PropertyManagerDashboard from './Dashboard';
+import PropertiesPage from './Property';
+import Tenants from './Tenants';
+import './App.css';
 
-import Layout from "./Layout";
-import PropertyManagementDashboard from "./Payments";
-import ExpensePage from "./Expense";
-import Unit from "./Units";
+import Layout from './Layout';
+import PropertyManagementDashboard from './Payments';
+import ExpensePage from './Expense';
+import Unit from './Units';
+import ManagersList from './ManagersList';
 
-ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
+ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
     <BrowserRouter>
       <Routes>
@@ -24,6 +25,7 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
           <Route path="payments" element={<PropertyManagementDashboard />} />
           <Route path="expenses" element={<ExpensePage />} />
           <Route path="units" element={<Unit />} />
+          <Route path="managers" element={<ManagersList />} />
         </Route>
 
         {/* <Route path="*" element={<NotFound />} /> */}
