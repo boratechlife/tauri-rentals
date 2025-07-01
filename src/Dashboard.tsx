@@ -2,13 +2,6 @@ import { useEffect, useState } from 'react';
 import Database from '@tauri-apps/plugin-sql';
 import { Users, AlertCircle, Calendar, TrendingUp, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { invoke } from '@tauri-apps/api/core';
-
-type User = {
-  id: number;
-  name: string;
-  email: string;
-};
 
 type StatsCard = {
   title: string;
@@ -58,28 +51,12 @@ type StatsData = {
 };
 
 const PropertyManagerDashboard = () => {
-  const [activeTab, setActiveTab] = useState<string>('overview');
   const navigate = useNavigate();
   const [statsCards, setStatsCards] = useState<StatsCard[]>([]);
   const [upcomingTasks, setUpcomingTasks] = useState<Task[]>([]);
   const [recentActivities, setRecentActivities] = useState<Activity[]>([]);
   const [error, setError] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
-  const [greeting, setGreeting] = useState<string>('');
-  const [users, setUsers] = useState<User[]>([]);
-
-  async function getUsers() {
-    try {
-      const db = await Database.load('sqlite:test4.db');
-      const dbUsers = await db.select<User[]>('SELECT * FROM users');
-      setError('');
-      setUsers(dbUsers);
-      console.log('Users fetched successfully:', dbUsers);
-    } catch (error) {
-      console.error('Failed to get users:', error);
-      setError('Failed to get users - check console');
-    }
-  }
 
   async function fetchStats(): Promise<StatsData> {
     const db = await Database.load('sqlite:test4.db');
@@ -96,15 +73,12 @@ const PropertyManagerDashboard = () => {
       return results[0];
     } catch (err) {
       console.error('Failed to fetch stats:', err);
+      console.log('Error details:', error);
       throw err;
     } finally {
       await db.close();
     }
   }
-
-  useEffect(() => {
-    getUsers();
-  }, []);
 
   useEffect(() => {
     async function loadTasks() {
@@ -182,7 +156,7 @@ const PropertyManagerDashboard = () => {
 
         setRecentActivities(activitiesData);
         setStatsCards(statsCardsData);
-        setGreeting(await invoke<string>('greet', { name: 'Next.js' }));
+        //   setGreeting(await invoke<string>('greet', { name: 'Next.js' }));
       } catch (err) {
         console.error('Failed to load dashboard data:', err);
         setError('Failed to load essential dashboard data.');
@@ -545,6 +519,13 @@ const PropertyManagerDashboard = () => {
     navigate(path);
   };
 
+  if (loading) {
+    return (
+      <div style={{ textAlign: 'center', padding: '50px' }}>
+        <p>Loading...</p>
+      </div>
+    );
+  }
   return (
     <div style={styles.container}>
       <main style={styles.main}>

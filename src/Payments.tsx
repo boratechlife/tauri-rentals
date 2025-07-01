@@ -47,7 +47,7 @@ export interface Tenant {
   updated_at?: string;
 }
 
-interface Property {
+export interface Property {
   property_id: number;
   name: string;
   address: string;
@@ -61,7 +61,6 @@ interface Property {
 }
 
 const PropertyManagementDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('dashboard');
   const [payments, setPayments] = useState<Payment[]>([]);
   const [searchText, setSearchText] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');

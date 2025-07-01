@@ -11,7 +11,6 @@ import {
   Eye,
   Edit,
   Trash2,
-  Calendar,
 } from 'lucide-react';
 
 // Define precise Property interface
@@ -431,8 +430,6 @@ const PropertiesPage = () => {
         <div className="flex flex-col sm:flex-row items-center gap-4 flex-wrap">
           <div className="relative flex-1 max-w-md">
             <Search
-              class
-              Великоб
               className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
               size={16}
             />
