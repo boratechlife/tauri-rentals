@@ -29,7 +29,7 @@ function App() {
         className="row"
         onSubmit={(e) => {
           e.preventDefault();
-          greet();
+         
         }}
       >
         <input

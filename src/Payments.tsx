@@ -89,7 +89,7 @@ const PropertyManagementDashboard: React.FC = () => {
         LEFT JOIN properties pr ON p.property_id = pr.property_id
       `);
       setError('');
-      setPayments(dbPayments);
+      setPayments(dbPayments as Payment[]);
     } catch (err) {
       console.error('Error fetching payments:', err);
       setError('Failed to get payments - check console');

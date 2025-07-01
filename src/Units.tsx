@@ -35,129 +35,26 @@ import {
   Dog,
 } from 'lucide-react';
 
-// Mock Data for demonstration purposes
-const mockUnits = [
-  {
-    id: 'U001',
-    unit_number: 'SL-201',
-    property: 'Sunset Lofts',
-    block: 'A',
-    floor: 2,
-    status: 'Occupied',
-    type: '2BR/2BA',
-    bedrooms: 2,
-    bathrooms: 2,
-    squareFootage: 1200,
-    rent: 1800,
-    securityDeposit: 1800,
-    amenities: ['Parking', 'AC', 'Pool Access'],
-    photos: [
-      'https://placehold.co/200x150/FF5733/FFFFFF?text=SL-201-1',
-      'https://placehold.co/200x150/33FF57/FFFFFF?text=SL-201-2',
-    ],
-    tenantInfo: {
-      id: 'T001',
-      name: 'Alice Johnson',
-      leaseEndDate: '2025-01-14',
-    },
-    notes: 'Recently renovated kitchen.',
-  },
-  {
-    id: 'U002',
-    unit_number: 'GVA-105',
-    property: 'Green Valley Apartments',
-    block: 'B',
-    floor: 1,
-    status: 'Available',
-    type: '1BR/1BA',
-    bedrooms: 1,
-    bathrooms: 1,
-    squareFootage: 750,
-    rent: 1500,
-    securityDeposit: 1500,
-    amenities: ['Gym', 'Balcony', 'Wifi'],
-    photos: ['https://placehold.co/200x150/3366FF/FFFFFF?text=GVA-105-1'],
-    tenantInfo: null,
-    notes: 'Great view of the park.',
-  },
-  {
-    id: 'U003',
-    unit_number: 'CVC-08',
-    property: 'City View Condos',
-    block: 'Main',
-    floor: 5,
-    status: 'Maintenance',
-    type: '3BR/2BA',
-    bedrooms: 3,
-    bathrooms: 2,
-    squareFootage: 1800,
-    rent: 2200,
-    securityDeposit: 2200,
-    amenities: ['Washer/Dryer', 'Pet Friendly'],
-    photos: ['https://placehold.co/200x150/33FF57/FFFFFF?text=CVC-08-1'],
-    tenantInfo: null,
-    notes: 'Plumbing repair in progress. Estimated completion: 2024-07-01.',
-  },
-  {
-    id: 'U004',
-    unit_number: 'SL-303',
-    property: 'Sunset Lofts',
-    block: 'A',
-    floor: 3,
-    status: 'Occupied',
-    type: '2BR/1BA',
-    bedrooms: 2,
-    bathrooms: 1,
-    squareFootage: 1000,
-    rent: 1950,
-    securityDeposit: 1950,
-    amenities: ['Parking', 'Balcony'],
-    photos: ['https://placehold.co/200x150/FF33CC/FFFFFF?text=SL-303-1'],
-    tenantInfo: {
-      id: 'T004',
-      name: 'David Lee',
-      leaseEndDate: '2025-08-31',
-    },
-    notes: 'Quiet corner unit.',
-  },
-  {
-    id: 'U005',
-    unit_number: 'GVA-210',
-    property: 'Green Valley Apartments',
-    block: 'C',
-    floor: 2,
-    status: 'Reserved',
-    type: '1BR/1BA',
-    bedrooms: 1,
-    bathrooms: 1,
-    squareFootage: 800,
-    rent: 1450,
-    securityDeposit: 1450,
-    amenities: ['AC', 'Gym'],
-    photos: ['https://placehold.co/200x150/5733FF/FFFFFF?text=GVA-210-1'],
-    tenantInfo: null,
-    notes: 'Awaiting final approval for new tenant.',
-  },
-];
-
-// Define precise types for mock data and database data
-interface MockUnit {
-  id: string;
+// Define precise UnitType for database-driven data
+interface UnitType {
+  unit_id: number;
   unit_number: string;
-  property: string;
-  block: string;
-  floor: number;
-  status: string;
-  type: string;
-  bedrooms: number;
-  bathrooms: number;
-  squareFootage: number;
-  rent: number;
-  securityDeposit: number;
-  amenities: string[];
-  photos: string[];
+  property_id: number;
+  property_name: string;
+  block_label: string | null;
+  floor_number: number | null;
+  unit_status: string;
+  unit_type: string;
+  bedroom_count: number | null;
+  bathroom_count: number | null;
+  monthly_rent: number | null;
+  security_deposit: number | null;
+  tenant_id: string | null;
+  notes: string | null;
   tenantInfo: { id: string; name: string; leaseEndDate: string } | null;
-  notes: string;
+  photos?: string[];
+  amenities?: string[];
+  squareFootage?: number;
 }
 
 // Helper function to map amenity strings to Lucide icons
@@ -185,26 +82,6 @@ const getAmenityIcon = (amenity: string) => {
       return <QrCode className="h-4 w-4 text-gray-500" />;
   }
 };
-
-// Define precise UnitType for database-driven data
-interface UnitType {
-  unit_id: number;
-  unit_number: string;
-  property_id: number;
-  block_label: string | null;
-  floor_number: number | null;
-  unit_status: string;
-  unit_type: string;
-  bedroom_count: number | null;
-  bathroom_count: number | null;
-  monthly_rent: number | null;
-  security_deposit: number | null;
-  tenant_id: string | null;
-  notes: string | null;
-  tenantInfo: { id: string; name: string; leaseEndDate: string } | null;
-  photos?: string[]; // Added to align with mock data usage
-  amenities?: string[]; // Added to align with mock data usage
-}
 
 const Unit = () => {
   // State definitions with precise types
@@ -256,8 +133,8 @@ const Unit = () => {
   });
 
   // Available properties and unit types for filters
-  const availableProperties = [...new Set(mockUnits.map((u) => u.property))];
-  const availableUnitTypes = [...new Set(mockUnits.map((u) => u.type))].sort();
+  const availableProperties = [...new Set(properties.map((p) => p.name))];
+  const availableUnitTypes = [...new Set(units.map((u) => u.unit_type))].sort();
 
   useEffect(() => {
     async function fetchProperties() {
@@ -265,12 +142,9 @@ const Unit = () => {
       try {
         setLoading(true);
         db = await Database.load('sqlite:test4.db');
-        const dbProperties = await db.select<
-          {
-            property_id: number;
-            name: string;
-          }[]
-        >(`SELECT property_id, name FROM properties`);
+        const dbProperties: any = await db.select(
+          `SELECT property_id, name FROM properties`
+        );
         setProperties(dbProperties);
       } catch (err) {
         console.error('Error fetching properties:', err);
@@ -292,6 +166,7 @@ const Unit = () => {
             unit_id: number;
             unit_number: string;
             property_id: number;
+            property_name: string;
             block_label: string | null;
             floor_number: number | null;
             unit_status: string;
@@ -304,11 +179,17 @@ const Unit = () => {
             notes: string | null;
             tenant_name: string | null;
             lease_end_date: string | null;
+            squareFootage?: number;
+            photos?: string[];
+            amenities?: string[];
           }[]
         >(`
-          SELECT u.unit_id, u.unit_number, u.property_id, u.block_label, u.floor_number, u.unit_status, u.unit_type, u.bedroom_count, u.bathroom_count, u.monthly_rent, u.security_deposit, u.tenant_id, u.notes,
-                 t.full_name AS tenant_name, t.lease_end_date
+          SELECT u.unit_id, u.unit_number, u.property_id, p.name AS property_name, 
+                 u.block_label, u.floor_number, u.unit_status, u.unit_type, 
+                 u.bedroom_count, u.bathroom_count, u.monthly_rent, u.security_deposit, 
+                 u.tenant_id, u.notes, t.full_name AS tenant_name, t.lease_end_date
           FROM units u
+          LEFT JOIN properties p ON u.property_id = p.property_id
           LEFT JOIN tenants t ON u.tenant_id = t.tenant_id
         `);
         console.log('Fetched units from DB:', dbUnits);
@@ -316,6 +197,7 @@ const Unit = () => {
           unit_id: unit.unit_id,
           unit_number: unit.unit_number,
           property_id: unit.property_id,
+          property_name: unit.property_name,
           block_label: unit.block_label,
           floor_number: unit.floor_number,
           unit_status: unit.unit_status,
@@ -333,11 +215,9 @@ const Unit = () => {
                 leaseEndDate: unit.lease_end_date || '',
               }
             : null,
-          // Add mock data fields for compatibility
-          photos:
-            mockUnits.find((m) => m.id === `U${unit.unit_id}`)?.photos || [],
-          amenities:
-            mockUnits.find((m) => m.id === `U${unit.unit_id}`)?.amenities || [],
+          photos: unit.photos || [],
+          amenities: unit.amenities || [],
+          squareFootage: unit.squareFootage,
         }));
         setUnits(processedUnits);
         setFilteredUnits(processedUnits);
@@ -354,17 +234,16 @@ const Unit = () => {
 
   useEffect(() => {
     let currentFilteredUnits = units.filter((unit) => {
-      const mockUnit = mockUnits.find((m) => m.id === `U${unit.unit_id}`);
       const matchesSearch =
         searchTerm === '' ||
         unit.unit_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        mockUnit?.property.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        unit.property_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (unit.block_label?.toLowerCase().includes(searchTerm.toLowerCase()) ??
           false);
       const matchesStatus =
         filterStatus === 'All' || unit.unit_status === filterStatus;
       const matchesProperty =
-        filterProperty === 'All' || mockUnit?.property === filterProperty;
+        filterProperty === 'All' || unit.property_name === filterProperty;
       const matchesUnitType =
         filterUnitType === 'All' || unit.unit_type === filterUnitType;
       return (
@@ -467,6 +346,7 @@ const Unit = () => {
           unit_id: number;
           unit_number: string;
           property_id: number;
+          property_name: string;
           block_label: string | null;
           floor_number: number | null;
           unit_status: string;
@@ -479,17 +359,24 @@ const Unit = () => {
           notes: string | null;
           tenant_name: string | null;
           lease_end_date: string | null;
+          squareFootage?: number;
+          photos?: string[];
+          amenities?: string[];
         }[]
       >(`
-        SELECT u.unit_id, u.unit_number, u.property_id, u.block_label, u.floor_number, u.unit_status, u.unit_type, u.bedroom_count, u.bathroom_count, u.monthly_rent, u.security_deposit, u.tenant_id, u.notes,
-               t.full_name AS tenant_name, t.lease_end_date
+        SELECT u.unit_id, u.unit_number, u.property_id, p.name AS property_name, 
+               u.block_label, u.floor_number, u.unit_status, u.unit_type, 
+               u.bedroom_count, u.bathroom_count, u.monthly_rent, u.security_deposit, 
+               u.tenant_id, u.notes, t.full_name AS tenant_name, t.lease_end_date
         FROM units u
+        LEFT JOIN properties p ON u.property_id = p.property_id
         LEFT JOIN tenants t ON u.tenant_id = t.tenant_id
       `);
       const processedUnits = dbUnits.map((unit) => ({
         unit_id: unit.unit_id,
         unit_number: unit.unit_number,
         property_id: unit.property_id,
+        property_name: unit.property_name,
         block_label: unit.block_label,
         floor_number: unit.floor_number,
         unit_status: unit.unit_status,
@@ -507,10 +394,9 @@ const Unit = () => {
               leaseEndDate: unit.lease_end_date || '',
             }
           : null,
-        photos:
-          mockUnits.find((m) => m.id === `U${unit.unit_id}`)?.photos || [],
-        amenities:
-          mockUnits.find((m) => m.id === `U${unit.unit_id}`)?.amenities || [],
+        photos: unit.photos || [],
+        amenities: unit.amenities || [],
+        squareFootage: unit.squareFootage,
       }));
       setUnits(processedUnits);
       setFilteredUnits(processedUnits);
@@ -635,17 +521,8 @@ const Unit = () => {
   const maintenanceUnits = units.filter(
     (u) => u.unit_status === 'Maintenance'
   ).length;
-  const reservedUnits = units.filter(
-    (u) => u.unit_status === 'Reserved'
-  ).length;
   const occupancyRate =
     totalUnits > 0 ? ((occupiedUnits / totalUnits) * 100).toFixed(1) : '0.0';
-  const averageRent =
-    totalUnits > 0
-      ? (
-          units.reduce((sum, u) => sum + (u.monthly_rent || 0), 0) / totalUnits
-        ).toFixed(2)
-      : '0.00';
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -865,10 +742,8 @@ const Unit = () => {
                     </span>
                   </div>
                   <p className="text-sm text-gray-600 flex items-center gap-2 mb-1">
-                    <Building2 className="w-4 h-4" />{' '}
-                    {mockUnits.find((m) => m.id === `U${unit.unit_id}`)
-                      ?.property || 'Unknown'}
-                    , Block {unit.block_label || 'N/A'}, Floor{' '}
+                    <Building2 className="w-4 h-4" /> {unit.property_name},
+                    Block {unit.block_label || 'N/A'}, Floor{' '}
                     {unit.floor_number || 'N/A'}
                   </p>
                   <p className="text-sm text-gray-600 flex items-center gap-2 mb-1">
@@ -877,10 +752,7 @@ const Unit = () => {
                     {unit.unit_type})
                   </p>
                   <p className="text-sm text-gray-600 flex items-center gap-2 mb-1">
-                    <Ruler className="w-4 h-4" />{' '}
-                    {mockUnits.find((m) => m.id === `U${unit.unit_id}`)
-                      ?.squareFootage || 0}{' '}
-                    sqft
+                    <Ruler className="w-4 h-4" /> {unit.squareFootage || 0} sqft
                   </p>
                   <p className="text-sm text-gray-600 flex items-center gap-2 mt-2">
                     <DollarSign className="w-4 h-4" /> Rent: $
@@ -953,74 +825,68 @@ const Unit = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredUnits.map((unit) => {
-                  const mockUnit = mockUnits.find(
-                    (m) => m.id === `U${unit.unit_id}`
-                  );
-                  return (
-                    <tr key={unit.unit_id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
-                          {unit.unit_number}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          ID: {unit.unit_id}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {mockUnit?.property || 'Unknown'} (Block{' '}
-                        {unit.block_label || 'N/A'}, Floor{' '}
-                        {unit.floor_number || 'N/A'})
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {unit.unit_type} ({unit.bedroom_count || 0}BR/
-                        {unit.bathroom_count || 0}BA)
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        ${unit.monthly_rent || 0}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(
-                            unit.unit_status
-                          )}`}
+                {filteredUnits.map((unit) => (
+                  <tr key={unit.unit_id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">
+                        {unit.unit_number}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        ID: {unit.unit_id}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {unit.property_name} (Block {unit.block_label || 'N/A'},
+                      Floor {unit.floor_number || 'N/A'})
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {unit.unit_type} ({unit.bedroom_count || 0}BR/
+                      {unit.bathroom_count || 0}BA)
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      ${unit.monthly_rent || 0}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span
+                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(
+                          unit.unit_status
+                        )}`}
+                      >
+                        {unit.unit_status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {unit.tenantInfo
+                        ? `${unit.tenantInfo.name} (ends: ${unit.tenantInfo.leaseEndDate})`
+                        : 'None'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => handleViewUnit(unit)}
+                          className={`${secondaryButtonClass} p-2`}
+                          aria-label="View Unit"
                         >
-                          {unit.unit_status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {unit.tenantInfo
-                          ? `${unit.tenantInfo.name} (ends: ${unit.tenantInfo.leaseEndDate})`
-                          : 'None'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex justify-end gap-2">
-                          <button
-                            onClick={() => handleViewUnit(unit)}
-                            className={`${secondaryButtonClass} p-2`}
-                            aria-label="View Unit"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleEditUnit(unit.unit_id)}
-                            className={`${secondaryButtonClass} p-2`}
-                            aria-label="Edit Unit"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteUnit(unit.unit_id)}
-                            className={`${secondaryButtonClass} p-2 text-red-600 hover:bg-red-100`}
-                            aria-label="Delete Unit"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleEditUnit(unit.unit_id)}
+                          className={`${secondaryButtonClass} p-2`}
+                          aria-label="Edit Unit"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteUnit(unit.unit_id)}
+                          className={`${secondaryButtonClass} p-2 text-red-600 hover:bg-red-100`}
+                          aria-label="Delete Unit"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
@@ -1318,9 +1184,8 @@ const Unit = () => {
                   {selectedUnit.unit_number}
                 </h3>
                 <p className="text-sm text-gray-600 mb-2">
-                  {mockUnits.find((m) => m.id === `U${selectedUnit.unit_id}`)
-                    ?.property || 'Unknown'}
-                  , Block {selectedUnit.block_label || 'N/A'}, Floor{' '}
+                  {selectedUnit.property_name}, Block{' '}
+                  {selectedUnit.block_label || 'N/A'}, Floor{' '}
                   {selectedUnit.floor_number || 'N/A'}
                 </p>
                 <span
@@ -1351,9 +1216,7 @@ const Unit = () => {
                 <p className="flex items-center gap-2 text-gray-700 mb-2">
                   <Ruler className="w-5 h-5 text-gray-500" /> Square Footage:{' '}
                   <span className="font-medium">
-                    {mockUnits.find((m) => m.id === `U${selectedUnit.unit_id}`)
-                      ?.squareFootage || 0}{' '}
-                    sqft
+                    {selectedUnit.squareFootage || 0} sqft
                   </span>
                 </p>
                 <p className="flex items-center gap-2 text-gray-700 mb-2">

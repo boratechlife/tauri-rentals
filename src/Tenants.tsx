@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Plus, Edit, Trash2 } from 'lucide-react';
 import Database from '@tauri-apps/plugin-sql';
 import { DeleteConfirmationModal } from './DeleteConfirmationModal';

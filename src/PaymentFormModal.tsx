@@ -70,9 +70,9 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
         const dbProperties = await db.select(`
           SELECT property_id, name FROM properties
         `);
-        setTenants(dbTenants);
-        setUnits(dbUnits);
-        setProperties(dbProperties);
+        setTenants(dbTenants as { tenant_id: number; full_name: string }[]);
+        setUnits(dbUnits as { unit_id: number; unit_number: string }[]);
+        setProperties(dbProperties as { property_id: number; name: string }[]);
       } catch (err) {
         console.error('Error fetching data:', err);
       }

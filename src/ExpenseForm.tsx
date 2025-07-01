@@ -4,7 +4,7 @@ import { NewExpense, Expense } from './Expense';
 interface ExpenseFormProps {
   initialData?: NewExpense | Expense;
   onClose: () => void;
-  onSubmit: (expense: NewExpense | Expense) => void;
+  onSubmit: any;
   categories: string[];
   units: { unit_id: number; unit_number: string; block_id: number }[];
   blocks: { block_id: number; block_name: string }[];

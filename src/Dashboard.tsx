@@ -9,6 +9,7 @@ type User = {
   name: string;
   email: string;
 };
+
 type StatsCard = {
   title: string;
   value: number | string;
@@ -16,6 +17,7 @@ type StatsCard = {
   icon: React.ElementType;
   color: string;
 };
+
 type Payment = {
   payment_id: string;
   tenant_id: string;
@@ -34,45 +36,63 @@ type Payment = {
   updated_at: string;
 };
 
-const PropertyManagerDashboard = () => {
-  const [activeTab, setActiveTab] = useState('overview');
-  const navigate = useNavigate(); // Initialize useNavigate hook
-  const [statsCards, setStatsCards] = useState<StatsCard[]>([]);
-  const [upcomingTasks, setUpcomingTasks] = useState([]);
-  const [recentActivities, setRecentActivities] = useState([]);
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(true);
+type Task = {
+  task: string;
+  due: string;
+  priority: string;
+};
 
-  const [greeting, setGreeting] = useState('');
+type Activity = {
+  activityType: string;
+  message: string;
+  time: string;
+};
+
+type StatsData = {
+  totalProperties: number;
+  totalTenants: number;
+  totalPayments: number;
+  averageRent: number;
+  totalExpenses: number;
+  totalManagers: number;
+};
+
+const PropertyManagerDashboard = () => {
+  const [activeTab, setActiveTab] = useState<string>('overview');
+  const navigate = useNavigate();
+  const [statsCards, setStatsCards] = useState<StatsCard[]>([]);
+  const [upcomingTasks, setUpcomingTasks] = useState<Task[]>([]);
+  const [recentActivities, setRecentActivities] = useState<Activity[]>([]);
+  const [error, setError] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(true);
+  const [greeting, setGreeting] = useState<string>('');
   const [users, setUsers] = useState<User[]>([]);
 
   async function getUsers() {
     try {
-      const db = await Database.load('sqlite:test.db');
+      const db = await Database.load('sqlite:test4.db');
       const dbUsers = await db.select<User[]>('SELECT * FROM users');
-
       setError('');
       setUsers(dbUsers);
       console.log('Users fetched successfully:', dbUsers);
-      // setIsLoadingUsers(false);
     } catch (error) {
-      console.log(error);
+      console.error('Failed to get users:', error);
       setError('Failed to get users - check console');
     }
   }
 
-  async function fetchStats() {
+  async function fetchStats(): Promise<StatsData> {
     const db = await Database.load('sqlite:test4.db');
     try {
-      const results = await db.select(`
-      SELECT 
-        (SELECT COUNT(*) FROM properties) as totalProperties,
-        (SELECT COUNT(*) FROM tenants WHERE status = 'Active') as totalTenants,
-        (SELECT COUNT(*) FROM payments WHERE payment_status = 'Paid') as totalPayments,
-        (SELECT AVG(monthly_rent) FROM units) as averageRent,
-        (SELECT SUM(amount) FROM expenses) as totalExpenses,
-        (SELECT COUNT(*) FROM managers) as totalManagers
-    `);
+      const results = await db.select<StatsData[]>(`
+        SELECT 
+          (SELECT COUNT(*) FROM properties) as totalProperties,
+          (SELECT COUNT(*) FROM tenants WHERE status = 'Active') as totalTenants,
+          (SELECT COUNT(*) FROM payments WHERE payment_status = 'Paid') as totalPayments,
+          (SELECT AVG(monthly_rent) FROM units) as averageRent,
+          (SELECT SUM(amount) FROM expenses) as totalExpenses,
+          (SELECT COUNT(*) FROM managers) as totalManagers
+      `);
       return results[0];
     } catch (err) {
       console.error('Failed to fetch stats:', err);
@@ -89,9 +109,9 @@ const PropertyManagerDashboard = () => {
   useEffect(() => {
     async function loadTasks() {
       try {
-        const db = await Database.load('sqlite:test.db');
-        const data = await db.select(
-          `SELECT task_name as task, due_date as due, priority FROM tasks  ORDER BY due_date ASC LIMIT 5;`
+        const db = await Database.load('sqlite:test4.db');
+        const data = await db.select<Task[]>(
+          `SELECT task_name as task, due_date as due, priority FROM tasks ORDER BY due_date ASC LIMIT 5;`
         );
         setUpcomingTasks(data);
       } catch (err) {
@@ -102,22 +122,20 @@ const PropertyManagerDashboard = () => {
       }
     }
     loadTasks();
-  }, []); // Empty dependency array: runs once on component mount
+  }, []);
 
   useEffect(() => {
-    // Define an async function that will fetch all data
-
     async function fetchData() {
-      const db = await Database.load('sqlite:test.db');
+      const db = await Database.load('sqlite:test4.db');
       try {
         const [activitiesData, statsData] = await Promise.all([
-          db.select(
+          db.select<Activity[]>(
             `SELECT activity_type as activityType, message, time FROM recent_activities ORDER BY time DESC LIMIT 10;`
           ),
           fetchStats(),
         ]);
 
-        const statsCardsData = [
+        const statsCardsData: StatsCard[] = [
           {
             title: 'Total Properties',
             value: statsData.totalProperties || 0,
@@ -141,18 +159,14 @@ const PropertyManagerDashboard = () => {
           },
           {
             title: 'Average Rent',
-            value: `Kes${
-              (statsData.averageRent as number)?.toFixed(2) || '0.00'
-            }`,
+            value: `Kes${statsData.averageRent?.toFixed(2) || '0.00'}`,
             change: '+1.2%',
             icon: TrendingUp,
             color: '#8B5CF6',
           },
           {
             title: 'Total Expenses',
-            value: `Kes${
-              (statsData.totalExpenses as number)?.toFixed(2) || '0.00'
-            }`,
+            value: `Kes${statsData.totalExpenses?.toFixed(2) || '0.00'}`,
             change: '-0.5%',
             icon: AlertCircle,
             color: '#EF4444',
@@ -178,12 +192,10 @@ const PropertyManagerDashboard = () => {
       }
     }
 
-    fetchData(); // Call the async function
-
-    // The empty dependency array ensures this effect runs only once on mount
+    fetchData();
   }, []);
 
-  const styles = {
+  const styles: { [key: string]: React.CSSProperties } = {
     container: {
       minHeight: '100vh',
       backgroundColor: '#F9FAFB',
@@ -425,7 +437,7 @@ const PropertyManagerDashboard = () => {
     taskText: {
       fontSize: '14px',
       color: '#111827',
-      margin: '0 0 4px 0',
+      margin: '0 0 4px 0 ',
     },
     taskMeta: {
       display: 'flex',
@@ -478,7 +490,7 @@ const PropertyManagerDashboard = () => {
       cursor: 'pointer',
       transition: 'box-shadow 0.2s',
       textAlign: 'center',
-      display: 'flex', // Ensures content is centered vertically and horizontally
+      display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
@@ -488,7 +500,7 @@ const PropertyManagerDashboard = () => {
       flexDirection: 'column',
       alignItems: 'center',
       gap: '8px',
-      width: '100%', // Ensure content takes full button width for better click area
+      width: '100%',
     },
     quickActionText: {
       fontSize: '14px',
@@ -505,7 +517,7 @@ const PropertyManagerDashboard = () => {
     },
   };
 
-  const getActivityDotColor = (type) => {
+  const getActivityDotColor = (type: string): string => {
     switch (type) {
       case 'payment':
         return '#10B981';
@@ -518,7 +530,7 @@ const PropertyManagerDashboard = () => {
     }
   };
 
-  const getPriorityStyle = (priority) => {
+  const getPriorityStyle = (priority: string): React.CSSProperties => {
     switch (priority) {
       case 'high':
         return { ...styles.priorityBadge, ...styles.priorityHigh };
@@ -529,16 +541,13 @@ const PropertyManagerDashboard = () => {
     }
   };
 
-  // Handler for quick actions navigation
-  const handleQuickActionClick = (path) => {
+  const handleQuickActionClick = (path: string) => {
     navigate(path);
   };
 
   return (
     <div style={styles.container}>
-      {/* Main Content */}
       <main style={styles.main}>
-        {/* Stats Cards */}
         <div style={styles.statsGrid}>
           {statsCards.map((stat, index) => (
             <div key={index} style={styles.statsCard}>
@@ -556,16 +565,14 @@ const PropertyManagerDashboard = () => {
           ))}
         </div>
         <div style={styles.contentGrid}>
-          {/* Recent Activity */}
           <div style={styles.card}>
             <div style={styles.cardHeader}>
               <h2 style={styles.cardTitle}>Recent Activity</h2>
-
               <a
                 href="#"
                 style={styles.linkButton}
-                onMouseEnter={(e) => (e.target.style.color = '#2563EB')}
-                onMouseLeave={(e) => (e.target.style.color = '#3B82F6')}
+                onMouseEnter={(e) => (e.currentTarget.style.color = '#2563EB')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = '#3B82F6')}
               >
                 View all
               </a>
@@ -577,7 +584,9 @@ const PropertyManagerDashboard = () => {
                     <div
                       style={{
                         ...styles.activityDot,
-                        backgroundColor: getActivityDotColor(activity.type),
+                        backgroundColor: getActivityDotColor(
+                          activity.activityType
+                        ),
                       }}
                     />
                     <div style={styles.activityContent}>
@@ -589,15 +598,13 @@ const PropertyManagerDashboard = () => {
               </div>
             </div>
           </div>
-
-          {/* Upcoming Tasks */}
           <div style={styles.card}>
             <div style={styles.cardHeader}>
               <h2 style={styles.cardTitle}>Upcoming Tasks</h2>
               <button
                 style={styles.iconButton}
-                onMouseEnter={(e) => (e.target.style.color = '#6B7280')}
-                onMouseLeave={(e) => (e.target.style.color = '#9CA3AF')}
+                onMouseEnter={(e) => (e.currentTarget.style.color = '#6B7280')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = '#9CA3AF')}
               >
                 <Plus size={16} />
               </button>
@@ -623,8 +630,6 @@ const PropertyManagerDashboard = () => {
             </div>
           </div>
         </div>
-        ---
-        {/* Quick Actions */}
         <div style={styles.quickActions}>
           <h2 style={styles.sectionTitle}>Quick Actions</h2>
           <div style={styles.quickActionsGrid}>
@@ -638,7 +643,7 @@ const PropertyManagerDashboard = () => {
                 (e.currentTarget.style.boxShadow =
                   '0 1px 3px 0 rgba(0, 0, 0, 0.1)')
               }
-              onClick={() => handleQuickActionClick('/properties')} // Navigate to Add Property route
+              onClick={() => handleQuickActionClick('/properties')}
             >
               <div style={styles.quickActionContent}>
                 <Plus size={24} style={{ color: '#3B82F6' }} />
@@ -655,7 +660,7 @@ const PropertyManagerDashboard = () => {
                 (e.currentTarget.style.boxShadow =
                   '0 1px 3px 0 rgba(0, 0, 0, 0.1)')
               }
-              onClick={() => handleQuickActionClick('/tenants')} // Navigate to Add Tenant route
+              onClick={() => handleQuickActionClick('/tenants')}
             >
               <div style={styles.quickActionContent}>
                 <Users size={24} style={{ color: '#10B981' }} />
@@ -672,7 +677,7 @@ const PropertyManagerDashboard = () => {
                 (e.currentTarget.style.boxShadow =
                   '0 1px 3px 0 rgba(0, 0, 0, 0.1)')
               }
-              onClick={() => handleQuickActionClick('/payments')} // Navigate to Report Issue route
+              onClick={() => handleQuickActionClick('/payments')}
             >
               <div style={styles.quickActionContent}>
                 <AlertCircle size={24} style={{ color: '#F59E0B' }} />
@@ -689,7 +694,7 @@ const PropertyManagerDashboard = () => {
                 (e.currentTarget.style.boxShadow =
                   '0 1px 3px 0 rgba(0, 0, 0, 0.1)')
               }
-              onClick={() => handleQuickActionClick('/reports')} // Navigate to View Reports route
+              onClick={() => handleQuickActionClick('/reports')}
             >
               <div style={styles.quickActionContent}>
                 <TrendingUp size={24} style={{ color: '#8B5CF6' }} />

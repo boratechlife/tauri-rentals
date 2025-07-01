@@ -2,407 +2,101 @@ import { useState } from 'react';
 import { Settings, Bell, Search } from 'lucide-react';
 import { NavLink, Outlet } from 'react-router-dom';
 
+// Define navigation items type
+interface NavItem {
+  tab: string;
+  to: string;
+}
+
 const Layout = () => {
-  const [activeTab, setActiveTab] = useState('overview');
+  // Remove unused activeTab state
+  const [searchTerm, setSearchTerm] = useState(''); // Added for functional search
 
-  const styles = {
-    container: {
-      minHeight: '100vh',
-      backgroundColor: '#F9FAFB',
-      fontFamily:
-        '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    },
-    header: {
-      backgroundColor: '#FFFFFF',
-      borderBottom: '1px solid #E5E7EB',
-      boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
-      padding: '16px 24px',
-    },
-    headerContent: {
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-    },
-    headerLeft: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '16px',
-    },
-    title: {
-      fontSize: '24px',
-      fontWeight: 'bold',
-      color: '#111827',
-      margin: 0,
-    },
-    searchContainer: {
-      position: 'relative',
-    },
-    searchInput: {
-      paddingLeft: '40px',
-      paddingRight: '16px',
-      paddingTop: '8px',
-      paddingBottom: '8px',
-      width: '320px',
-      border: '1px solid #D1D5DB',
-      borderRadius: '8px',
-      fontSize: '14px',
-      outline: 'none',
-      transition: 'all 0.2s',
-    },
-    searchIcon: {
-      position: 'absolute',
-      left: '12px',
-      top: '50%',
-      transform: 'translateY(-50%)',
-      color: '#9CA3AF',
-      width: '16px',
-      height: '16px',
-    },
-    headerRight: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '12px',
-    },
-    iconButton: {
-      padding: '8px',
-      backgroundColor: 'transparent',
-      border: 'none',
-      borderRadius: '6px',
-      cursor: 'pointer',
-      color: '#9CA3AF',
-      position: 'relative',
-      transition: 'color 0.2s',
-    },
-    notificationBadge: {
-      position: 'absolute',
-      top: '-4px',
-      right: '-4px',
-      backgroundColor: '#EF4444',
-      color: 'white',
-      borderRadius: '50%',
-      width: '16px',
-      height: '16px',
-      fontSize: '10px',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    avatar: {
-      width: '32px',
-      height: '32px',
-      backgroundColor: '#3B82F6',
-      borderRadius: '50%',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      color: 'white',
-      fontSize: '14px',
-      fontWeight: '500',
-    },
-    nav: {
-      backgroundColor: '#FFFFFF',
-      borderBottom: '1px solid #E5E7EB',
-      padding: '0 24px',
-    },
-    navTabs: {
-      display: 'flex',
-      gap: '32px',
-    },
-    navTab: {
-      padding: '16px 4px',
-      border: 'none',
-      backgroundColor: 'transparent',
-      fontSize: '14px',
-      fontWeight: '500',
-      textTransform: 'capitalize',
-      cursor: 'pointer',
-      borderBottom: '2px solid transparent',
-      transition: 'all 0.2s',
-    },
-    navTabActive: {
-      borderBottomColor: '#3B82F6',
-      color: '#3B82F6',
-    },
-    navTabInactive: {
-      color: '#6B7280',
-    },
-    main: {
-      padding: '24px',
-    },
-    statsGrid: {
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-      gap: '24px',
-      marginBottom: '32px',
-    },
-    statsCard: {
-      backgroundColor: '#FFFFFF',
-      borderRadius: '8px',
-      padding: '24px',
-      border: '1px solid #E5E7EB',
-      boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
-    },
-    statsCardContent: {
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-    },
-    statsText: {
-      display: 'flex',
-      flexDirection: 'column',
-    },
-    statsTitle: {
-      fontSize: '14px',
-      fontWeight: '500',
-      color: '#6B7280',
-      margin: '0',
-    },
-    statsValue: {
-      fontSize: '24px',
-      fontWeight: 'bold',
-      color: '#111827',
-      margin: '4px 0',
-    },
-    statsChange: {
-      fontSize: '14px',
-      color: '#6B7280',
-      margin: '0',
-    },
-    contentGrid: {
-      display: 'grid',
-      gridTemplateColumns: '2fr 1fr',
-      gap: '24px',
-      marginBottom: '32px',
-    },
-    card: {
-      backgroundColor: '#FFFFFF',
-      borderRadius: '8px',
-      border: '1px solid #E5E7EB',
-      boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
-    },
-    cardHeader: {
-      padding: '24px',
-      borderBottom: '1px solid #E5E7EB',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-    },
-    cardTitle: {
-      fontSize: '18px',
-      fontWeight: '600',
-      color: '#111827',
-      margin: '0',
-    },
-    cardContent: {
-      padding: '24px',
-    },
-    activityList: {
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '16px',
-    },
-    activityItem: {
-      display: 'flex',
-      alignItems: 'flex-start',
-      gap: '12px',
-    },
-    activityDot: {
-      width: '8px',
-      height: '8px',
-      borderRadius: '50%',
-      marginTop: '8px',
-      flexShrink: 0,
-    },
-    activityContent: {
-      flex: 1,
-    },
-    activityMessage: {
-      fontSize: '14px',
-      color: '#111827',
-      margin: '0 0 4px 0',
-    },
-    activityTime: {
-      fontSize: '12px',
-      color: '#6B7280',
-      margin: '0',
-    },
-    tasksList: {
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '12px',
-    },
-    taskItem: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '12px',
-    },
-    taskCheckbox: {
-      width: '16px',
-      height: '16px',
-      accentColor: '#3B82F6',
-    },
-    taskContent: {
-      flex: 1,
-    },
-    taskText: {
-      fontSize: '14px',
-      color: '#111827',
-      margin: '0 0 4px 0',
-    },
-    taskMeta: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '8px',
-      margin: '0',
-    },
-    taskDue: {
-      fontSize: '12px',
-      color: '#6B7280',
-    },
-    priorityBadge: {
-      padding: '2px 8px',
-      fontSize: '12px',
-      borderRadius: '12px',
-      fontWeight: '500',
-    },
-    priorityHigh: {
-      backgroundColor: '#FEE2E2',
-      color: '#DC2626',
-    },
-    priorityMedium: {
-      backgroundColor: '#FEF3C7',
-      color: '#D97706',
-    },
-    priorityLow: {
-      backgroundColor: '#D1FAE5',
-      color: '#065F46',
-    },
-    quickActions: {
-      marginTop: '32px',
-    },
-    sectionTitle: {
-      fontSize: '18px',
-      fontWeight: '600',
-      color: '#111827',
-      marginBottom: '16px',
-    },
-    quickActionsGrid: {
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-      gap: '16px',
-    },
-    quickActionButton: {
-      backgroundColor: '#FFFFFF',
-      padding: '16px',
-      borderRadius: '8px',
-      border: '1px solid #E5E7EB',
-      boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
-      cursor: 'pointer',
-      transition: 'box-shadow 0.2s',
-      textAlign: 'center',
-      display: 'flex', // Ensures content is centered vertically and horizontally
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    quickActionContent: {
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      gap: '8px',
-      width: '100%', // Ensure content takes full button width for better click area
-    },
-    quickActionText: {
-      fontSize: '14px',
-      fontWeight: '500',
-      color: '#111827',
-    },
-    linkButton: {
-      color: '#3B82F6',
-      fontSize: '14px',
-      fontWeight: '500',
-      textDecoration: 'none',
-      cursor: 'pointer',
-      transition: 'color 0.2s',
-    },
-  };
-
-  // Handler for quick actions navigation
+  // Navigation items
+  const navItems: NavItem[] = [
+    { tab: 'overview', to: '/' },
+    { tab: 'properties', to: '/properties' },
+    { tab: 'units', to: '/units' },
+    { tab: 'tenants', to: '/tenants' },
+    { tab: 'finances', to: '/payments' },
+    { tab: 'expenses', to: '/expenses' },
+    { tab: 'managers', to: '/managers' },
+    { tab: 'blocks', to: '/blocks' },
+  ];
 
   return (
-    <div style={styles.container}>
+    <div className="min-h-screen bg-gray-50 font-sans text-gray-900">
       {/* Header */}
-      <header style={styles.header}>
-        <div style={styles.headerContent}>
-          <div style={styles.headerLeft}>
-            <h1 style={styles.title}>PropertyHub</h1>
-            <div style={styles.searchContainer}>
-              <Search style={styles.searchIcon} />
+      <header className="bg-white border-b border-gray-200 shadow-sm p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <h1 className="text-2xl font-bold text-gray-900">PropertyHub</h1>
+            <div className="relative max-w-xs">
+              <Search
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                size={16}
+              />
               <input
                 type="text"
                 placeholder="Search properties, tenants, or units..."
-                style={styles.searchInput}
-                onFocus={(e) => (e.target.style.borderColor = '#3B82F6')}
-                onBlur={(e) => (e.target.style.borderColor = '#D1D5DB')}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                value={searchTerm}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setSearchTerm(e.target.value)
+                }
               />
             </div>
           </div>
-          <div style={styles.headerRight}>
+          <div className="flex items-center gap-3">
             <button
-              style={styles.iconButton}
-              onMouseEnter={(e) => (e.target.style.color = '#6B7280')}
-              onMouseLeave={(e) => (e.target.style.color = '#9CA3AF')}
+              className="p-2 rounded-md text-gray-400 hover:text-gray-600 relative transition-colors"
+              aria-label="Notifications"
+              onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) =>
+                e.currentTarget.classList.add('text-gray-600')
+              }
+              onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) =>
+                e.currentTarget.classList.remove('text-gray-600')
+              }
             >
               <Bell size={20} />
-              <span style={styles.notificationBadge}>3</span>
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs">
+                3
+              </span>
             </button>
             <button
-              style={styles.iconButton}
-              onMouseEnter={(e) => (e.target.style.color = '#6B7280')}
-              onMouseLeave={(e) => (e.target.style.color = '#9CA3AF')}
+              className="p-2 rounded-md text-gray-400 hover:text-gray-600 transition-colors"
+              aria-label="Settings"
+              onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) =>
+                e.currentTarget.classList.add('text-gray-600')
+              }
+              onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) =>
+                e.currentTarget.classList.remove('text-gray-600')
+              }
             >
               <Settings size={20} />
             </button>
-            <div style={styles.avatar}>JD</div>
+            <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
+              JD
+            </div>
           </div>
         </div>
       </header>
 
       {/* Navigation */}
-      <nav style={styles.nav}>
-        <div style={styles.navTabs}>
-          {[
-            { tab: 'overview', to: '/' },
-            { tab: 'properties', to: '/properties' },
-            { tab: 'units', to: '/units' },
-            { tab: 'tenants', to: '/tenants' },
-            { tab: 'finances', to: '/payments' },
-            { tab: 'expenses', to: '/expenses' },
-            { tab: 'managers', to: '/managers' },
-            { tab: 'blocks', to: '/blocks' },
-          ].map(({ tab, to }) => (
+      <nav className="bg-white border-b border-gray-200 p-4">
+        <div className="flex gap-8">
+          {navItems.map(({ tab, to }) => (
             <NavLink
               key={tab}
               to={to}
               end={tab === 'overview'}
-              style={({ isActive }) => ({
-                ...styles.navTab,
-                ...(isActive ? styles.navTabActive : styles.navTabInactive),
-              })}
-              onMouseEnter={(e) => {
-                // @ts-ignore
-                if (!e.currentTarget.classList.contains('active')) {
-                  e.currentTarget.style.color = '#374151';
-                  e.currentTarget.style.borderBottomColor = '#D1D5DB';
-                }
-              }}
-              onMouseLeave={(e) => {
-                // @ts-ignore
-                if (!e.currentTarget.classList.contains('active')) {
-                  e.currentTarget.style.color = '#6B7280';
-                  e.currentTarget.style.borderBottomColor = 'transparent';
-                }
-              }}
+              className={({ isActive }) =>
+                `px-1 py-4 text-sm font-medium capitalize border-b-2 transition-colors ${
+                  isActive
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`
+              }
             >
               {tab}
             </NavLink>
@@ -411,7 +105,7 @@ const Layout = () => {
       </nav>
 
       {/* Main Content */}
-      <main style={styles.main}>
+      <main className="p-6">
         <Outlet />
       </main>
     </div>

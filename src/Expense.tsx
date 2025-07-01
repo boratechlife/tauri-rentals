@@ -6,21 +6,16 @@ import {
   TrendingDown,
   Plus,
   Search,
-  Filter,
   Calendar,
   Building,
   Home,
   Wrench,
   Zap,
-  Droplets,
-  Car,
   Shield,
   Users,
-  MoreHorizontal,
   Edit,
   Trash2,
 } from 'lucide-react';
-import { invoke } from '@tauri-apps/api/core';
 import { ExpenseForm } from './ExpenseForm';
 
 export interface Expense {
@@ -69,9 +64,7 @@ const ExpensePage: React.FC = () => {
   const [units, setUnits] = useState<
     { unit_id: number; unit_number: string; block_id: number }[]
   >([]);
-  const [properties, setProperties] = useState<
-    { property_id: number; name: string }[]
-  >([]);
+  const [properties, setProperties] = useState<any[]>([]);
   const [blocksData, setBlocksData] = useState<
     { block_id: number; block_name: string }[]
   >([]);
@@ -98,7 +91,7 @@ const ExpensePage: React.FC = () => {
       const db = await Database.load('sqlite:test4.db');
 
       // Use a safer query that handles missing block_id by making it optional
-      const dbExpenses = await db.select(
+      const dbExpenses: any = await db.select(
         `SELECT
           e.expense_id, e.amount, e.category, e.description, e.expense_date,
           u.unit_id, u.unit_number,
@@ -111,23 +104,27 @@ const ExpensePage: React.FC = () => {
         LEFT JOIN properties p ON e.property_id = p.property_id`
       );
       console.log('Expenses', dbExpenses);
-      setExpenses(dbExpenses);
+      setExpenses(dbExpenses as Expense[]);
 
-      const dbUnits = await db.select(`SELECT unit_id, unit_number FROM units`);
-      setUnits(dbUnits);
+      const dbUnits = await db.select(
+        `SELECT unit_id, unit_number, block_label as block_id FROM units`
+      );
+      setUnits(
+        dbUnits as { unit_id: number; unit_number: string; block_id: number }[]
+      );
       console.log('Units', dbUnits);
 
-      const dbProperties = await db.select(
+      const dbProperties: any = await db.select(
         `SELECT property_id, name FROM properties`
       );
       setProperties(dbProperties);
 
-      const dbBlocks = await db.select(
+      const dbBlocks: any = await db.select(
         `SELECT block_id, block_name FROM blocks`
       );
       setBlocksData(dbBlocks);
 
-      const uniqueCategories = [
+      const uniqueCategories: any = [
         'All',
         ...new Set(dbExpenses.map((exp: Expense) => exp.category || '')),
       ];
