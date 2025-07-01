@@ -5,19 +5,17 @@ import {
   Filter,
   Plus,
   MapPin,
-  Users,
-  DollarSign,
-  Settings,
+  Home,
   Grid,
   List,
   Eye,
   Edit,
   Trash2,
-  Home,
   Calendar,
 } from 'lucide-react';
 
-type Property = {
+// Define precise Property interface
+interface Property {
   property_id: number;
   name: string;
   address: string;
@@ -28,10 +26,11 @@ type Property = {
   manager_id: number;
   created_at: string;
   updated_at: string;
-};
+}
 
 const PropertiesPage = () => {
-  const [viewMode, setViewMode] = useState('grid');
+  // State definitions with precise types
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedBlock, setSelectedBlock] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
@@ -39,38 +38,20 @@ const PropertiesPage = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
-  const [blocks, setBlocks] = useState<string[]>([]);
+  const [blocks, setBlocks] = useState<string[]>(['all']); // Populated with 'all'
   const [error, setError] = useState<string | null>(null);
-  const [types, setTypes] = useState([]); //
+  const [types, setTypes] = useState<string[]>(['all']); // Populated with 'all'
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
-  const [editingPropertyId, setEditingPropertyId] = useState<string | null>(
+  const [editingPropertyId, setEditingPropertyId] = useState<number | null>(
     null
   );
   const [deleteMode, setDeleteMode] = useState(false);
-  const [deletingPropertyId, setDeletingPropertyId] = useState(null);
+  const [deletingPropertyId, setDeletingPropertyId] = useState<number | null>(
+    null
+  );
 
-  const modalOverlayStyle = {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    display: isFormModalOpen ? 'flex' : 'none',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1000,
-  };
-
-  const modalContentStyle = {
-    backgroundColor: '#FFFFFF',
-    padding: '24px',
-    borderRadius: '12px',
-    width: '500px',
-    maxHeight: '80vh',
-    overflowY: 'auto',
-  };
+  // Form data aligned with Property interface
   const [formData, setFormData] = useState({
     property_id: 0,
     name: '',
@@ -84,33 +65,52 @@ const PropertiesPage = () => {
     updated_at: '',
   });
 
-  const handleInputChange = (e) => {
+  // Handle input changes with typed event
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({
+      ...prev,
+      [name]:
+        name === 'total_units' || name === 'manager_id' ? Number(value) : value,
+    }));
   };
+
+  // Fetch properties and populate types
   useEffect(() => {
     async function fetchProperties() {
+      let db;
       try {
         setLoading(true);
-        const db = await Database.load('sqlite:test4.db');
-        // Adjust column names to match your 'properties' and 'units' table schema
+        db = await Database.load('sqlite:test4.db');
         const dbProperties = await db.select<Property[]>(
           `SELECT property_id, name, address, total_units, property_type, status, last_inspection, manager_id, created_at, updated_at FROM properties`
         );
-        setError('');
         setProperties(dbProperties);
+        // Populate types from fetched properties
+        const uniqueTypes = [
+          'all',
+          ...new Set(dbProperties.map((p) => p.property_type)),
+        ];
+        setTypes(uniqueTypes);
+        setError(null);
         console.log('Properties fetched successfully:', dbProperties);
       } catch (err) {
         console.error('Error fetching properties:', err);
         setError('Failed to get properties - check console');
       } finally {
         setLoading(false);
+        if (db) await db.close();
       }
     }
     fetchProperties();
   }, []);
 
+  // Available statuses and blocks (assuming blocks are not in DB)
   const statuses = ['all', 'active', 'maintenance'];
+  // Blocks could be fetched from DB if available; here we use a static list
+  const availableBlocks = ['all', 'Block A', 'Block B', 'Block C'];
 
   // Filter properties based on search and filters
   const filteredProperties = useMemo(() => {
@@ -119,350 +119,63 @@ const PropertiesPage = () => {
         property.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         property.address.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesStatus =
-        selectedStatus === 'all' || property.status === selectedStatus;
+        selectedStatus === 'all' ||
+        property.status.toLowerCase() === selectedStatus;
       const matchesType =
         selectedType === 'all' || property.property_type === selectedType;
+      // Block filter is not used since block is not in Property interface
       return matchesSearch && matchesStatus && matchesType;
     });
   }, [searchTerm, selectedStatus, selectedType, properties]);
 
-  const styles = {
-    container: {
-      minHeight: '100vh',
-      backgroundColor: '#F9FAFB',
-      fontFamily:
-        '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    },
-    header: {
-      backgroundColor: '#FFFFFF',
-      borderBottom: '1px solid #E5E7EB',
-      padding: '20px 24px',
-    },
-    headerContent: {
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginBottom: '20px',
-    },
-    title: {
-      fontSize: '28px',
-      fontWeight: 'bold',
-      color: '#111827',
-      margin: 0,
-    },
-    addButton: {
-      backgroundColor: '#3B82F6',
-      color: 'white',
-      border: 'none',
-      borderRadius: '8px',
-      padding: '10px 16px',
-      fontSize: '14px',
-      fontWeight: '500',
-      cursor: 'pointer',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '8px',
-      transition: 'background-color 0.2s',
-    },
-    controlsRow: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '16px',
-      flexWrap: 'wrap',
-    },
-    searchContainer: {
-      position: 'relative',
-      flex: 1,
-      maxWidth: '400px',
-    },
-    searchInput: {
-      width: '100%',
-      paddingLeft: '40px',
-      paddingRight: '16px',
-      paddingTop: '10px',
-      paddingBottom: '10px',
-      border: '1px solid #D1D5DB',
-      borderRadius: '8px',
-      fontSize: '14px',
-      outline: 'none',
-      transition: 'border-color 0.2s',
-    },
-    searchIcon: {
-      position: 'absolute',
-      left: '12px',
-      top: '50%',
-      transform: 'translateY(-50%)',
-      color: '#9CA3AF',
-      width: '16px',
-      height: '16px',
-    },
-    filterButton: {
-      backgroundColor: '#FFFFFF',
-      border: '1px solid #D1D5DB',
-      borderRadius: '8px',
-      padding: '10px 16px',
-      fontSize: '14px',
-      cursor: 'pointer',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '8px',
-      transition: 'all 0.2s',
-    },
-    viewToggle: {
-      display: 'flex',
-      backgroundColor: '#F3F4F6',
-      borderRadius: '8px',
-      padding: '4px',
-    },
-    viewButton: {
-      border: 'none',
-      backgroundColor: 'transparent',
-      padding: '8px 12px',
-      borderRadius: '6px',
-      cursor: 'pointer',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '4px',
-      fontSize: '14px',
-      transition: 'all 0.2s',
-    },
-    viewButtonActive: {
-      backgroundColor: '#FFFFFF',
-      color: '#3B82F6',
-      boxShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
-    },
-    viewButtonInactive: {
-      color: '#6B7280',
-    },
-    filtersPanel: {
-      backgroundColor: '#FFFFFF',
-      borderBottom: '1px solid #E5E7EB',
-      padding: '16px 24px',
-      display: showFilters ? 'block' : 'none',
-    },
-    filtersGrid: {
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-      gap: '16px',
-    },
-    filterGroup: {
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '4px',
-    },
-    filterLabel: {
-      fontSize: '14px',
-      fontWeight: '500',
-      color: '#374151',
-    },
-    filterSelect: {
-      padding: '8px 12px',
-      border: '1px solid #D1D5DB',
-      borderRadius: '6px',
-      fontSize: '14px',
-      backgroundColor: '#FFFFFF',
-      outline: 'none',
-      transition: 'border-color 0.2s',
-    },
-    main: {
-      padding: '24px',
-    },
-    resultsHeader: {
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginBottom: '20px',
-    },
-    resultsCount: {
-      fontSize: '16px',
-      color: '#6B7280',
-    },
-    propertiesGrid: {
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-      gap: '24px',
-    },
-    propertiesList: {
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '16px',
-    },
-    propertyCard: {
-      backgroundColor: '#FFFFFF',
-      borderRadius: '12px',
-      border: '1px solid #E5E7EB',
-      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-      overflow: 'hidden',
-      transition: 'box-shadow 0.2s, transform 0.2s',
-    },
-    propertyImage: {
-      width: '100%',
-      height: '200px',
-      backgroundColor: '#E5E7EB',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      color: '#9CA3AF',
-    },
-    propertyContent: {
-      padding: '20px',
-    },
-    propertyHeader: {
-      display: 'flex',
-      alignItems: 'flex-start',
-      justifyContent: 'space-between',
-      marginBottom: '12px',
-    },
-    propertyTitle: {
-      fontSize: '18px',
-      fontWeight: '600',
-      color: '#111827',
-      margin: '0 0 4px 0',
-    },
-    propertyAddress: {
-      fontSize: '14px',
-      color: '#6B7280',
-      margin: 0,
-      display: 'flex',
-      alignItems: 'center',
-      gap: '4px',
-    },
-    statusBadge: {
-      padding: '4px 8px',
-      borderRadius: '12px',
-      fontSize: '12px',
-      fontWeight: '500',
-    },
-    statusActive: {
-      backgroundColor: '#D1FAE5',
-      color: '#065F46',
-    },
-    statusMaintenance: {
-      backgroundColor: '#FEF3C7',
-      color: '#92400E',
-    },
-    statusVacant: {
-      backgroundColor: '#FEE2E2',
-      color: '#991B1B',
-    },
-    propertyStats: {
-      display: 'grid',
-      gridTemplateColumns: 'repeat(3, 1fr)',
-      gap: '12px',
-      marginBottom: '16px',
-    },
-    statItem: {
-      textAlign: 'center',
-      padding: '8px',
-      backgroundColor: '#F9FAFB',
-      borderRadius: '6px',
-    },
-    statValue: {
-      fontSize: '16px',
-      fontWeight: '600',
-      color: '#111827',
-      margin: '0 0 2px 0',
-    },
-    statLabel: {
-      fontSize: '12px',
-      color: '#6B7280',
-      margin: 0,
-    },
-    propertyFooter: {
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingTop: '16px',
-      borderTop: '1px solid #F3F4F6',
-    },
-    propertyMeta: {
-      fontSize: '14px',
-      color: '#6B7280',
-    },
-    propertyActions: {
-      display: 'flex',
-      gap: '8px',
-    },
-    actionButton: {
-      padding: '6px',
-      border: 'none',
-      borderRadius: '6px',
-      cursor: 'pointer',
-      backgroundColor: '#F3F4F6',
-      color: '#6B7280',
-      transition: 'all 0.2s',
-    },
-    listCard: {
-      backgroundColor: '#FFFFFF',
-      borderRadius: '8px',
-      border: '1px solid #E5E7EB',
-      padding: '20px',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '20px',
-      transition: 'box-shadow 0.2s',
-    },
-    listImage: {
-      width: '80px',
-      height: '80px',
-      backgroundColor: '#E5E7EB',
-      borderRadius: '8px',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      color: '#9CA3AF',
-      flexShrink: 0,
-    },
-    listContent: {
-      flex: 1,
-      display: 'grid',
-      gridTemplateColumns: '2fr 1fr 1fr 1fr auto',
-      gap: '20px',
-      alignItems: 'center',
-    },
-    listProperty: {
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '4px',
-    },
-    listStats: {
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '2px',
-      fontSize: '14px',
-    },
-  };
-
-  const handleCloseModal = () => setIsFormModalOpen(false);
-
-  const handleConfirmDelete = async () => {
+  // Handle form submission
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault(); // Prevent page reload
     let db;
     try {
       db = await Database.load('sqlite:test4.db');
       setLoading(true);
-      await db.execute(`DELETE FROM properties WHERE property_id = $1`, [
-        deletingPropertyId,
-      ]);
-      console.log('Property deleted successfully:', deletingPropertyId);
-      setProperties(
-        properties.filter((p) => p.property_id !== deletingPropertyId)
-      );
-      setDeleteMode(false);
-      setDeletingPropertyId(null);
-      setError('');
-    } catch (err) {
-      console.error('Error deleting property:', err);
-      setError('Failed to delete property');
-    } finally {
-      setLoading(false);
-      if (db) await db.close();
-    }
-  };
 
-  const handleEditProperty = (id) => {
-    const property = properties.find((p) => p.property_id === id);
-    setFormData(
-      property || {
+      if (editMode) {
+        await db.execute(
+          `UPDATE properties SET name = $1, address = $2, total_units = $3, property_type = $4, status = $5, last_inspection = $6, manager_id = $7, updated_at = $8 WHERE property_id = $9`,
+          [
+            formData.name,
+            formData.address,
+            formData.total_units,
+            formData.property_type,
+            formData.status,
+            formData.last_inspection || null,
+            formData.manager_id,
+            new Date().toISOString(),
+            editingPropertyId,
+          ]
+        );
+      } else {
+        // Let the database generate property_id (auto-increment)
+        await db.execute(
+          `INSERT INTO properties (name, address, total_units, property_type, status, last_inspection, manager_id, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+          [
+            formData.name,
+            formData.address,
+            formData.total_units,
+            formData.property_type,
+            formData.status,
+            formData.last_inspection || null,
+            formData.manager_id,
+            new Date().toISOString(),
+            new Date().toISOString(),
+          ]
+        );
+      }
+
+      const dbProperties = await db.select<Property[]>(
+        `SELECT property_id, name, address, total_units, property_type, status, last_inspection, manager_id, created_at, updated_at FROM properties`
+      );
+      setProperties(dbProperties);
+      setTypes(['all', ...new Set(dbProperties.map((p) => p.property_type))]);
+      setIsFormModalOpen(false);
+      setFormData({
         property_id: 0,
         name: '',
         address: '',
@@ -473,75 +186,10 @@ const PropertiesPage = () => {
         manager_id: 0,
         created_at: '',
         updated_at: '',
-      }
-    );
-    setEditingPropertyId(id);
-    setEditMode(true);
-    setIsFormModalOpen(true);
-  };
-  const handleSubmit = async () => {
-    let db;
-    try {
-      db = await Database.load('sqlite:test4.db');
-      setLoading(true);
-      const existingProperty = await db.select(
-        `SELECT property_id FROM properties WHERE property_id = $1`,
-        [editMode ? formData.property_id : null]
-      );
-
-      if (editMode && existingProperty.length > 0) {
-        await db.execute(
-          `UPDATE properties SET name = $1, address = $2, total_units = $3, property_type = $4, status = $5, last_inspection = $6, manager_id = $7, updated_at = $8 WHERE property_id = $9`,
-          [
-            formData.name,
-            formData.address,
-            formData.total_units,
-            formData.property_type,
-            formData.status,
-            formData.last_inspection,
-            formData.manager_id,
-            new Date().toISOString(),
-            formData.property_id,
-          ]
-        );
-      } else {
-        const newId = String(properties.length + 1);
-        await db.execute(
-          `INSERT INTO properties (property_id, name, address, total_units, property_type, status, last_inspection, manager_id, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-          [
-            newId,
-            formData.name,
-            formData.address,
-            formData.total_units,
-            formData.property_type,
-            formData.status,
-            formData.last_inspection,
-            formData.manager_id,
-            new Date().toISOString(),
-            new Date().toISOString(),
-          ]
-        );
-      }
-      const dbProperties = await db.select(`SELECT * FROM properties`);
-      setProperties(dbProperties);
-      setIsFormModalOpen(false);
-      setFormData({
-        name: '',
-        address: '',
-        block: 'Block A',
-        totalUnits: 0,
-        occupiedUnits: 0,
-        vacantUnits: 0,
-        monthlyRent: 0,
-        propertyType: 'Apartment',
-        status: 'Active',
-        image: '',
-        lastInspection: '',
-        manager: '',
       });
       setEditMode(false);
       setEditingPropertyId(null);
-      setError('');
+      setError(null);
     } catch (err) {
       console.error('Error submitting property:', err);
       setError('Failed to submit property');
@@ -550,154 +198,212 @@ const PropertiesPage = () => {
       if (db) await db.close();
     }
   };
-  const getStatusStyle = (status) => {
-    switch (status) {
-      case 'Active':
-        return { ...styles.statusBadge, ...styles.statusActive };
-      case 'Maintenance':
-        return { ...styles.statusBadge, ...styles.statusMaintenance };
-      default:
-        return { ...styles.statusBadge, ...styles.statusVacant };
+
+  // Handle edit property
+  const handleEditProperty = (id: number) => {
+    const property = properties.find((p) => p.property_id === id);
+    if (property) {
+      setFormData({
+        property_id: property.property_id,
+        name: property.name,
+        address: property.address,
+        total_units: property.total_units,
+        property_type: property.property_type,
+        status: property.status,
+        last_inspection: property.last_inspection || '',
+        manager_id: property.manager_id,
+        created_at: property.created_at,
+        updated_at: property.updated_at,
+      });
+      setEditingPropertyId(id);
+      setEditMode(true);
+      setIsFormModalOpen(true);
     }
   };
 
-  const handleDeleteProperty = (id) => {
+  // Handle delete property
+  const handleDeleteProperty = (id: number) => {
     setDeletingPropertyId(id);
     setDeleteMode(true);
   };
 
-  const PropertyCardView = ({ property }) => (
-    <div
-      style={styles.propertyCard}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1)';
-        e.currentTarget.style.transform = 'translateY(-2px)';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.1)';
-        e.currentTarget.style.transform = 'translateY(0)';
-      }}
-    >
-      <div style={styles.propertyImage}>
+  // Confirm delete
+  const handleConfirmDelete = async () => {
+    let db;
+    try {
+      db = await Database.load('sqlite:test4.db');
+      setLoading(true);
+      await db.execute(`DELETE FROM properties WHERE property_id = $1`, [
+        deletingPropertyId,
+      ]);
+      setProperties(
+        properties.filter((p) => p.property_id !== deletingPropertyId)
+      );
+      setDeleteMode(false);
+      setDeletingPropertyId(null);
+      setError(null);
+    } catch (err) {
+      console.error('Error deleting property:', err);
+      setError('Failed to delete property');
+    } finally {
+      setLoading(false);
+      if (db) await db.close();
+    }
+  };
+
+  // Handle close modal
+  const handleCloseModal = () => {
+    setIsFormModalOpen(false);
+    setEditMode(false);
+    setEditingPropertyId(null);
+    setFormData({
+      property_id: 0,
+      name: '',
+      address: '',
+      total_units: 0,
+      property_type: '',
+      status: 'active',
+      last_inspection: '',
+      manager_id: 0,
+      created_at: '',
+      updated_at: '',
+    });
+  };
+
+  // Get status badge classes
+  const getStatusClass = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'active':
+        return 'bg-green-100 text-green-800';
+      case 'maintenance':
+        return 'bg-yellow-100 text-yellow-800';
+      default:
+        return 'bg-red-100 text-red-800';
+    }
+  };
+
+  // PropertyCardView component
+  const PropertyCardView = ({ property }: { property: Property }) => (
+    <div className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-200">
+      <div className="w-full h-48 bg-gray-200 flex items-center justify-center text-gray-400">
         <Home size={40} />
       </div>
-      <div style={styles.propertyContent}>
-        <div style={styles.propertyHeader}>
+      <div className="p-5">
+        <div className="flex items-start justify-between mb-3">
           <div>
-            <h3 style={styles.propertyTitle}>{property.name}</h3>
-            <p style={styles.propertyAddress}>
+            <h3 className="text-lg font-semibold text-gray-900">
+              {property.name}
+            </h3>
+            <p className="text-sm text-gray-600 flex items-center gap-1">
               <MapPin size={14} />
               {property.address}
             </p>
           </div>
-          <span style={getStatusStyle(property.status)}>{property.status}</span>
+          <span
+            className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusClass(
+              property.status
+            )}`}
+          >
+            {property.status}
+          </span>
         </div>
-
-        <div style={styles.propertyStats}>
-          <div style={styles.statItem}>
-            <p style={styles.statValue}>{property.totalUnits}</p>
-            <p style={styles.statLabel}>Total Units</p>
+        <div className="grid grid-cols-3 gap-3 mb-4">
+          <div className="text-center bg-gray-50 p-2 rounded-md">
+            <p className="text-base font-semibold text-gray-900">
+              {property.total_units}
+            </p>
+            <p className="text-xs text-gray-600">Total Units</p>
           </div>
-          <div style={styles.statItem}>
-            <p style={styles.statValue}>{property.occupiedUnits}</p>
-            <p style={styles.statLabel}>Occupied</p>
+          {/* Placeholder for occupiedUnits and vacantUnits */}
+          <div className="text-center bg-gray-50 p-2 rounded-md">
+            <p className="text-base font-semibold text-gray-900">-</p>
+            <p className="text-xs text-gray-600">Occupied</p>
           </div>
-          <div style={styles.statItem}>
-            <p style={styles.statValue}>{property.vacantUnits}</p>
-            <p style={styles.statLabel}>Vacant</p>
+          <div className="text-center bg-gray-50 p-2 rounded-md">
+            <p className="text-base font-semibold text-gray-900">-</p>
+            <p className="text-xs text-gray-600">Vacant</p>
           </div>
         </div>
-
-        <div style={styles.propertyFooter}>
-          <div style={styles.propertyMeta}>
-            <div>Block: {property.block}</div>
-            <div>Rent: ${property.monthly_rent}/month</div>
+        <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+          <div className="text-sm text-gray-600">
+            <div>Last Inspection: {property.last_inspection || 'N/A'}</div>
           </div>
-          <div style={styles.propertyActions}>
+          <div className="flex gap-2">
             <button
-              style={styles.actionButton}
-              onMouseEnter={(e) => (e.target.style.backgroundColor = '#E5E7EB')}
-              onMouseLeave={(e) => (e.target.style.backgroundColor = '#F3F4F6')}
+              className="p-2 rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+              aria-label="View Property"
             >
               <Eye size={16} />
             </button>
             <button
-              style={styles.actionButton}
+              className="p-2 rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
               onClick={() => handleEditProperty(property.property_id)}
-              onMouseEnter={(e) => (e.target.style.backgroundColor = '#E5E7EB')}
-              onMouseLeave={(e) => (e.target.style.backgroundColor = '#F3F4F6')}
+              aria-label="Edit Property"
             >
               <Edit size={16} />
             </button>
             <button
-              style={styles.actionButton}
+              className="p-2 rounded-md bg-gray-100 text-red-600 hover:bg-red-100 transition-colors"
               onClick={() => handleDeleteProperty(property.property_id)}
-              onMouseEnter={(e) => (e.target.style.backgroundColor = '#E5E7EB')}
-              onMouseLeave={(e) => (e.target.style.backgroundColor = '#F3F4F6')}
+              aria-label="Delete Property"
             >
               <Trash2 size={16} />
             </button>
-            {/* <button
-              style={styles.actionButton}
-              onMouseEnter={(e) => (e.target.style.backgroundColor = '#E5E7EB')}
-              onMouseLeave={(e) => (e.target.style.backgroundColor = '#F3F4F6')}
-            >
-              <Settings size={16} />
-            </button> */}
           </div>
         </div>
       </div>
     </div>
   );
 
-  const PropertyListView = ({ property }) => (
-    <div
-      style={styles.listCard}
-      onMouseEnter={(e) =>
-        (e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1)')
-      }
-      onMouseLeave={(e) => (e.currentTarget.style.boxShadow = 'none')}
-    >
-      <div style={styles.listImage}>
+  // PropertyListView component
+  const PropertyListView = ({ property }: { property: Property }) => (
+    <div className="bg-white rounded-lg border border-gray-200 p-5 flex items-center gap-5 hover:shadow-md transition-shadow">
+      <div className="w-20 h-20 bg-gray-200 rounded-md flex items-center justify-center text-gray-400 flex-shrink-0">
         <Home size={32} />
       </div>
-      <div style={styles.listContent}>
-        <div style={styles.listProperty}>
-          <h3 style={{ ...styles.propertyTitle, fontSize: '16px' }}>
+      <div className="grid grid-cols-[2fr_1fr_1fr_auto] gap-5 items-center flex-1">
+        <div className="flex flex-col gap-1">
+          <h3 className="text-base font-semibold text-gray-900">
             {property.name}
           </h3>
-          <p style={styles.propertyAddress}>
+          <p className="text-sm text-gray-600 flex items-center gap-1">
             <MapPin size={12} />
             {property.address}
           </p>
-          <span style={getStatusStyle(property.status)}>{property.status}</span>
+          <span
+            className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusClass(
+              property.status
+            )}`}
+          >
+            {property.status}
+          </span>
         </div>
-        <div style={styles.listStats}>
+        <div className="flex flex-col gap-1 text-sm text-gray-600">
           <div>Total Units: {property.total_units}</div>
           <div>Manager ID: {property.manager_id}</div>
           <div>Last Inspection: {property.last_inspection || 'N/A'}</div>
         </div>
-        <div style={styles.propertyActions}>
+        <div className="flex flex-col gap-1 text-sm text-gray-600">
+          {/* Placeholder for additional stats */}
+        </div>
+        <div className="flex gap-2">
           <button
-            style={styles.actionButton}
-            onMouseEnter={(e) => (e.target.style.backgroundColor = '#E5E7EB')}
-            onMouseLeave={(e) => (e.target.style.backgroundColor = '#F3F4F6')}
+            className="p-2 rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+            aria-label="View Property"
           >
             <Eye size={16} />
           </button>
           <button
-            style={styles.actionButton}
+            className="p-2 rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
             onClick={() => handleEditProperty(property.property_id)}
-            onMouseEnter={(e) => (e.target.style.backgroundColor = '#E5E7EB')}
-            onMouseLeave={(e) => (e.target.style.backgroundColor = '#F3F4F6')}
+            aria-label="Edit Property"
           >
             <Edit size={16} />
           </button>
           <button
-            style={styles.actionButton}
+            className="p-2 rounded-md bg-gray-100 text-red-600 hover:bg-red-100 transition-colors"
             onClick={() => handleDeleteProperty(property.property_id)}
-            onMouseEnter={(e) => (e.target.style.backgroundColor = '#E5E7EB')}
-            onMouseLeave={(e) => (e.target.style.backgroundColor = '#F3F4F6')}
+            aria-label="Delete Property"
           >
             <Trash2 size={16} />
           </button>
@@ -705,82 +411,66 @@ const PropertiesPage = () => {
       </div>
     </div>
   );
+
   return (
-    <div style={styles.container}>
+    <div className="min-h-screen bg-gray-50 font-sans text-gray-900 p-6">
       {/* Header */}
-      <header style={styles.header}>
-        <div style={styles.headerContent}>
-          <h1 style={styles.title}>Properties</h1>
+      <header className="bg-white border-b border-gray-200 p-5 mb-6">
+        <div className="flex items-center justify-between mb-5">
+          <h1 className="text-2xl font-bold text-gray-900">Properties</h1>
           <button
-            style={styles.addButton}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             onClick={() => setIsFormModalOpen(true)}
-            onMouseEnter={(e) => (e.target.style.backgroundColor = '#2563EB')}
-            onMouseLeave={(e) => (e.target.style.backgroundColor = '#3B82F6')}
           >
             <Plus size={16} />
             Add Property
           </button>
         </div>
-
-        <div style={styles.controlsRow}>
-          <div style={styles.searchContainer}>
-            <Search style={styles.searchIcon} />
+        <div className="flex flex-col sm:flex-row items-center gap-4 flex-wrap">
+          <div className="relative flex-1 max-w-md">
+            <Search
+              class
+              Великоб
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+              size={16}
+            />
             <input
               type="text"
               placeholder="Search properties, addresses, or managers..."
-              style={styles.searchInput}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition-colors"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              onFocus={(e) => (e.target.style.borderColor = '#3B82F6')}
-              onBlur={(e) => (e.target.style.borderColor = '#D1D5DB')}
             />
           </div>
-
           <button
-            style={{
-              ...styles.filterButton,
-              backgroundColor: showFilters ? '#3B82F6' : '#FFFFFF',
-              color: showFilters ? '#FFFFFF' : '#374151',
-              borderColor: showFilters ? '#3B82F6' : '#D1D5DB',
-            }}
+            className={`flex items-center gap-2 px-4 py-2 border rounded-lg transition-colors ${
+              showFilters
+                ? 'bg-blue-600 text-white border-blue-600'
+                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
+            }`}
             onClick={() => setShowFilters(!showFilters)}
-            onMouseEnter={(e) => {
-              if (!showFilters) {
-                e.target.style.backgroundColor = '#F9FAFB';
-                e.target.style.borderColor = '#9CA3AF';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!showFilters) {
-                e.target.style.backgroundColor = '#FFFFFF';
-                e.target.style.borderColor = '#D1D5DB';
-              }
-            }}
           >
             <Filter size={16} />
             Filters
           </button>
-
-          <div style={styles.viewToggle}>
+          <div className="flex bg-gray-100 rounded-lg p-1">
             <button
-              style={{
-                ...styles.viewButton,
-                ...(viewMode === 'grid'
-                  ? styles.viewButtonActive
-                  : styles.viewButtonInactive),
-              }}
+              className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors ${
+                viewMode === 'grid'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-600 hover:bg-gray-200'
+              }`}
               onClick={() => setViewMode('grid')}
             >
               <Grid size={16} />
               Grid
             </button>
             <button
-              style={{
-                ...styles.viewButton,
-                ...(viewMode === 'list'
-                  ? styles.viewButtonActive
-                  : styles.viewButtonInactive),
-              }}
+              className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors ${
+                viewMode === 'list'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-600 hover:bg-gray-200'
+              }`}
               onClick={() => setViewMode('list')}
             >
               <List size={16} />
@@ -791,306 +481,264 @@ const PropertiesPage = () => {
       </header>
 
       {/* Filters Panel */}
-      <div style={styles.filtersPanel}>
-        <div style={styles.filtersGrid}>
-          <div style={styles.filterGroup}>
-            <label style={styles.filterLabel}>Block</label>
-            <select
-              style={styles.filterSelect}
-              value={selectedBlock}
-              onChange={(e) => setSelectedBlock(e.target.value)}
-              onFocus={(e) => (e.target.style.borderColor = '#3B82F6')}
-              onBlur={(e) => (e.target.style.borderColor = '#D1D5DB')}
-            >
-              {blocks.map((block) => (
-                <option key={block} value={block}>
-                  {block === 'all' ? 'All Blocks' : block}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div style={styles.filterGroup}>
-            <label style={styles.filterLabel}>Status</label>
-            <select
-              style={styles.filterSelect}
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              onFocus={(e) => (e.target.style.borderColor = '#3B82F6')}
-              onBlur={(e) => (e.target.style.borderColor = '#D1D5DB')}
-            >
-              {statuses.map((status) => (
-                <option key={status} value={status}>
-                  {status === 'all' ? 'All Statuses' : status}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div style={styles.filterGroup}>
-            <label style={styles.filterLabel}>Property Type</label>
-            <select
-              style={styles.filterSelect}
-              value={selectedType}
-              onChange={(e) => setSelectedType(e.target.value)}
-              onFocus={(e) => (e.target.style.borderColor = '#3B82F6')}
-              onBlur={(e) => (e.target.style.borderColor = '#D1D5DB')}
-            >
-              {types.map((type) => (
-                <option key={type} value={type}>
-                  {type === 'all' ? 'All Types' : type}
-                </option>
-              ))}
-            </select>
+      {showFilters && (
+        <div className="bg-white border-b border-gray-200 p-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Block
+              </label>
+              <select
+                className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                value={selectedBlock}
+                onChange={(e) => setSelectedBlock(e.target.value)}
+              >
+                {availableBlocks.map((block) => (
+                  <option key={block} value={block}>
+                    {block === 'all' ? 'All Blocks' : block}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Status
+              </label>
+              <select
+                className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+              >
+                {statuses.map((status) => (
+                  <option key={status} value={status}>
+                    {status === 'all' ? 'All Statuses' : status}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Property Type
+              </label>
+              <select
+                className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                value={selectedType}
+                onChange={(e) => setSelectedType(e.target.value)}
+              >
+                {types.map((type) => (
+                  <option key={type} value={type}>
+                    {type === 'all' ? 'All Types' : type}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Main Content */}
-      <main style={styles.main}>
-        <div style={styles.resultsHeader}>
-          <p style={styles.resultsCount}>
+      <main className="p-6">
+        <div className="flex items-center justify-between mb-5">
+          <p className="text-gray-600">
             Showing {filteredProperties.length} of {properties.length}{' '}
             properties
           </p>
         </div>
 
-        {viewMode === 'grid' ? (
-          <div style={styles.propertiesGrid}>
-            {searchTerm.length > 0
-              ? filteredProperties.map((property) => (
-                  <PropertyCardView
-                    key={property.property_id}
-                    property={property}
-                  />
-                ))
-              : properties.map((property) => (
-                  <PropertyCardView
-                    key={property.property_id}
-                    property={property}
-                  />
-                ))}
+        {filteredProperties.length === 0 ? (
+          <div className="text-center p-10 text-gray-500">
+            <Home size={48} className="mx-auto mb-4 opacity-50" />
+            <h3 className="text-lg font-medium mb-2">No properties found</h3>
+            <p>Try adjusting your search or filter criteria</p>
+          </div>
+        ) : viewMode === 'grid' ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {filteredProperties.map((property) => (
+              <PropertyCardView
+                key={property.property_id}
+                property={property}
+              />
+            ))}
           </div>
         ) : (
-          <div style={styles.propertiesList}>
-            {searchTerm.length > 0
-              ? filteredProperties.map((property) => (
-                  <PropertyCardView
-                    key={property.property_id}
-                    property={property}
-                  />
-                ))
-              : properties.map((property) => (
-                  <PropertyCardView
-                    key={property.property_id}
-                    property={property}
-                  />
-                ))}
-          </div>
-        )}
-
-        {filteredProperties.length === 0 && (
-          <div
-            style={{
-              textAlign: 'center',
-              padding: '60px 20px',
-              color: '#6B7280',
-            }}
-          >
-            <Home size={48} style={{ margin: '0 auto 16px', opacity: 0.5 }} />
-            <h3
-              style={{
-                fontSize: '18px',
-                fontWeight: '500',
-                margin: '0 0 8px 0',
-              }}
-            >
-              No properties found
-            </h3>
-            <p style={{ margin: 0 }}>
-              Try adjusting your search or filter criteria
-            </p>
+          <div className="flex flex-col gap-4">
+            {filteredProperties.map((property) => (
+              <PropertyListView
+                key={property.property_id}
+                property={property}
+              />
+            ))}
           </div>
         )}
       </main>
 
+      {/* Form Modal */}
       {isFormModalOpen && (
-        <div style={modalOverlayStyle}>
-          <div style={modalContentStyle}>
-            <h2
-              style={{
-                fontSize: '20px',
-                fontWeight: 'bold',
-                marginBottom: '16px',
-              }}
-            >
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-6 rounded-lg max-w-lg max-h-[80vh] overflow-y-auto">
+            <h2 className="text-xl font-bold mb-4">
               {editMode ? 'Edit Property' : 'Add Property'}
             </h2>
-            <form>
-              <label
-                htmlFor="name"
-                style={{ ...styles.filterLabel, marginBottom: '4px' }}
-              >
-                Name
-              </label>
-              <input
-                id="name"
-                name="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                placeholder="Name"
-                style={{
-                  ...styles.filterSelect,
-                  width: '100%',
-                  marginBottom: '12px',
-                }}
-              />
-              <label
-                htmlFor="address"
-                style={{ ...styles.filterLabel, marginBottom: '4px' }}
-              >
-                Address
-              </label>
-              <input
-                id="address"
-                name="address"
-                value={formData.address}
-                onChange={handleInputChange}
-                placeholder="Address"
-                style={{
-                  ...styles.filterSelect,
-                  width: '100%',
-                  marginBottom: '12px',
-                }}
-              />
-              <label
-                htmlFor="totalUnits"
-                style={{ ...styles.filterLabel, marginBottom: '4px' }}
-              >
-                Total Units
-              </label>
-              <input
-                id="totalUnits"
-                name="total_units"
-                type="number"
-                value={formData.total_units}
-                onChange={handleInputChange}
-                placeholder="Total Units"
-                style={{
-                  ...styles.filterSelect,
-                  width: '100%',
-                  marginBottom: '12px',
-                }}
-              />
-              <label
-                htmlFor="propertyType"
-                style={{ ...styles.filterLabel, marginBottom: '4px' }}
-              >
-                Property Type
-              </label>
-              <input
-                id="propertyType"
-                name="property_type"
-                value={formData.property_type}
-                onChange={handleInputChange}
-                placeholder="Property Type"
-                style={{
-                  ...styles.filterSelect,
-                  width: '100%',
-                  marginBottom: '12px',
-                }}
-              />
-              <label
-                htmlFor="status"
-                style={{ ...styles.filterLabel, marginBottom: '4px' }}
-              >
-                Status
-              </label>
-              <select
-                id="status"
-                name="status"
-                value={formData.status}
-                onChange={handleInputChange}
-                style={{
-                  ...styles.filterSelect,
-                  width: '100%',
-                  marginBottom: '12px',
-                }}
-              >
-                <option value="active">Active</option>
-                <option value="maintenance">Maintenance</option>
-              </select>
-              <label
-                htmlFor="lastInspection"
-                style={{ ...styles.filterLabel, marginBottom: '4px' }}
-              >
-                Last Inspection
-              </label>
-              <input
-                id="lastInspection"
-                name="last_inspection"
-                type="date"
-                value={formData.last_inspection || ''}
-                onChange={handleInputChange}
-                style={{
-                  ...styles.filterSelect,
-                  width: '100%',
-                  marginBottom: '12px',
-                }}
-              />
-              <label
-                htmlFor="managerId"
-                style={{ ...styles.filterLabel, marginBottom: '4px' }}
-              >
-                Manager ID
-              </label>
-              <input
-                id="managerId"
-                name="manager_id"
-                type="number"
-                value={formData.manager_id}
-                onChange={handleInputChange}
-                placeholder="Manager ID"
-                style={{
-                  ...styles.filterSelect,
-                  width: '100%',
-                  marginBottom: '12px',
-                }}
-              />
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label
+                  htmlFor="name"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Name
+                </label>
+                <input
+                  id="name"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  placeholder="Name"
+                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="address"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Address
+                </label>
+                <input
+                  id="address"
+                  name="address"
+                  value={formData.address}
+                  onChange={handleInputChange}
+                  placeholder="Address"
+                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="total_units"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Total Units
+                </label>
+                <input
+                  id="total_units"
+                  name="total_units"
+                  type="number"
+                  value={formData.total_units}
+                  onChange={handleInputChange}
+                  placeholder="Total Units"
+                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="property_type"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Property Type
+                </label>
+                <input
+                  id="property_type"
+                  name="property_type"
+                  value={formData.property_type}
+                  onChange={handleInputChange}
+                  placeholder="Property Type"
+                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="status"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Status
+                </label>
+                <select
+                  id="status"
+                  name="status"
+                  value={formData.status}
+                  onChange={handleInputChange}
+                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  required
+                >
+                  <option value="active">Active</option>
+                  <option value="maintenance">Maintenance</option>
+                </select>
+              </div>
+              <div>
+                <label
+                  htmlFor="last_inspection"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Last Inspection
+                </label>
+                <input
+                  id="last_inspection"
+                  name="last_inspection"
+                  type="date"
+                  value={formData.last_inspection}
+                  onChange={handleInputChange}
+                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="manager_id"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Manager ID
+                </label>
+                <input
+                  id="manager_id"
+                  name="manager_id"
+                  type="number"
+                  value={formData.manager_id}
+                  onChange={handleInputChange}
+                  placeholder="Manager ID"
+                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+              </div>
+              <div className="flex gap-3 mt-4">
+                <button
+                  type="button"
+                  onClick={handleCloseModal}
+                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  {editMode ? 'Update Property' : 'Add Property'}
+                </button>
+              </div>
             </form>
-
-            <button
-              style={{ ...styles.actionButton, marginLeft: 'auto' }}
-              onClick={handleCloseModal}
-            >
-              Close
-            </button>
-
-            <button
-              style={{ ...styles.addButton, width: '100%', marginTop: '12px' }}
-              onClick={handleSubmit}
-            >
-              Submit
-            </button>
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
       {deleteMode && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-          <div className="bg-white p-6 rounded-lg w-[500px] max-h-[80vh] overflow-y-auto">
-            <h2 className="text-2xl font-bold mb-4">Confirm Delete</h2>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-6 rounded-lg max-w-lg">
+            <h2 className="text-xl font-bold mb-4">Confirm Delete</h2>
             <p className="mb-4">
               Are you sure you want to delete this property?
             </p>
             <div className="flex gap-3 mt-4">
               <button
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 onClick={handleConfirmDelete}
               >
                 Yes
               </button>
               <button
-                className="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors w-full"
+                className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
                 onClick={() => setDeleteMode(false)}
               >
                 No

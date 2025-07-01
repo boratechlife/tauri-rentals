@@ -53,7 +53,7 @@ export const TenantFormModal: React.FC<TenantFormModalProps> = ({
           SELECT unit_id, unit_number 
           FROM units
         `);
-        setUnits(dbUnits);
+        setUnits(dbUnits as { unit_id: number; unit_number: string }[]);
       } catch (err) {
         console.error('Error fetching units:', err);
       }
