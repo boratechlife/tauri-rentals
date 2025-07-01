@@ -13,6 +13,7 @@ import PropertyManagementDashboard from './Payments';
 import ExpensePage from './Expense';
 import Unit from './Units';
 import ManagersList from './ManagersList';
+import BlocksList from './BlocksList';
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
@@ -26,6 +27,8 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
           <Route path="expenses" element={<ExpensePage />} />
           <Route path="units" element={<Unit />} />
           <Route path="managers" element={<ManagersList />} />
+          <Route path="blocks" element={<BlocksList />} />
+          {/* Add other routes as needed */}
         </Route>
 
         {/* <Route path="*" element={<NotFound />} /> */}
