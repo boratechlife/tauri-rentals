@@ -1128,23 +1128,32 @@ const Unit = () => {
                   >
                     Unit Type <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="text"
-                    id="unit_type"
-                    className={`w-full p-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 ${
-                      formErrors.unit_type
-                        ? 'border-red-500'
-                        : 'border-gray-300'
-                    }`}
-                    value={newUnitData.unit_type}
-                    onChange={(e) =>
-                      setNewUnitData({
-                        ...newUnitData,
-                        unit_type: e.target.value,
-                      })
-                    }
-                    required
-                  />
+                  <div>
+                    <select
+                      id="unit_type"
+                      className={`w-full p-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 ${
+                        formErrors.unit_type
+                          ? 'border-red-500'
+                          : 'border-gray-300'
+                      }`}
+                      value={newUnitData.unit_type}
+                      onChange={(e) =>
+                        setNewUnitData({
+                          ...newUnitData,
+                          unit_type: e.target.value,
+                        })
+                      }
+                      required
+                    >
+                      <option value="">Select Unit Type</option>
+                      <option value="Single">Single</option>
+                      <option value="Bedsitter">Bedsitter</option>
+                      <option value="One Bedroom">One Bedroom</option>
+                      <option value="Two Bedroom">Two Bedroom</option>
+                      <option value="Three Bedroom">Three Bedroom</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
                   {formErrors.unit_type && (
                     <p className="mt-1 text-sm text-red-600">
                       {formErrors.unit_type}
@@ -1270,35 +1279,7 @@ const Unit = () => {
                     </p>
                   )}
                 </div>
-                <div>
-                  <label
-                    htmlFor="tenant_id"
-                    className="block text-sm font-medium text-gray-700 mb-1"
-                  >
-                    Tenant ID (optional)
-                  </label>
-                  <input
-                    type="text"
-                    id="tenant_id"
-                    className={`w-full p-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 ${
-                      formErrors.tenant_id
-                        ? 'border-red-500'
-                        : 'border-gray-300'
-                    }`}
-                    value={newUnitData.tenant_id}
-                    onChange={(e) =>
-                      setNewUnitData({
-                        ...newUnitData,
-                        tenant_id: e.target.value,
-                      })
-                    }
-                  />
-                  {formErrors.tenant_id && (
-                    <p className="mt-1 text-sm text-red-600">
-                      {formErrors.tenant_id}
-                    </p>
-                  )}
-                </div>
+
                 <div className="md:col-span-2">
                   <label
                     htmlFor="notes"
