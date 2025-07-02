@@ -27,6 +27,11 @@ interface Property {
   updated_at: string;
 }
 
+interface Manager {
+  manager_id: number;
+  name: string;
+}
+
 const PropertiesPage = () => {
   // State definitions with precise types
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -37,6 +42,7 @@ const PropertiesPage = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
+  const [managers, setManagers] = useState<Manager[]>([]);
   // const [blocks, setBlocks] = useState<string[]>(['all']); // Populated with 'all'
   const [error, setError] = useState<string | null>(null);
   const [types, setTypes] = useState<string[]>(['all']); // Populated with 'all'
@@ -105,7 +111,28 @@ const PropertiesPage = () => {
         if (db) await db.close();
       }
     }
+    async function fetchManagers() {
+      let db;
+      try {
+        setLoading(true);
+        db = await Database.load('sqlite:test4.db');
+        const dbManagers = await db.select<Manager[]>(
+          `SELECT manager_id, name FROM managers`
+        );
+        setManagers(dbManagers);
+        setError(null);
+        console.log('Managers fetched successfully:', dbManagers);
+      } catch (err) {
+        console.error('Error fetching managers:', err);
+        setError('Failed to get managers - check console');
+      } finally {
+        setLoading(false);
+        if (db) await db.close();
+      }
+    }
+
     fetchProperties();
+    fetchManagers();
   }, []);
 
   // Available statuses and blocks (assuming blocks are not in DB)
@@ -284,50 +311,114 @@ const PropertiesPage = () => {
   };
 
   // PropertyCardView component
-  const PropertyCardView = ({ property }: { property: Property }) => (
-    <div className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-200">
-      <div className="w-full h-48 bg-gray-200 flex items-center justify-center text-gray-400">
-        <Home size={40} />
+  // Update PropertyCardView
+  const PropertyCardView = ({ property }: { property: Property }) => {
+    const manager = managers.find((m) => m.manager_id === property.manager_id);
+    return (
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-200">
+        <div className="w-full h-48 bg-gray-200 flex items-center justify-center text-gray-400">
+          <Home size={40} />
+        </div>
+        <div className="p-5">
+          <div className="flex items-start justify-between mb-3">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">
+                {property.name}
+              </h3>
+              <p className="text-sm text-gray-600 flex items-center gap-1">
+                <MapPin size={14} />
+                {property.address}
+              </p>
+            </div>
+            <span
+              className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusClass(
+                property.status
+              )}`}
+            >
+              {property.status}
+            </span>
+          </div>
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            <div className="text-center bg-gray-50 p-2 rounded-md">
+              <p className="text-base font-semibold text-gray-900">
+                {property.total_units}
+              </p>
+              <p className="text-xs text-gray-600">Total Units</p>
+            </div>
+            <div className="text-center bg-gray-50 p-2 rounded-md">
+              <p className="text-base font-semibold text-gray-900">-</p>
+              <p className="text-xs text-gray-600">Occupied</p>
+            </div>
+            <div className="text-center bg-gray-50 p-2 rounded-md">
+              <p className="text-base font-semibold text-gray-900">-</p>
+              <p className="text-xs text-gray-600">Vacant</p>
+            </div>
+          </div>
+          <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+            <div className="text-sm text-gray-600">
+              <div>Last Inspection: {property.last_inspection || 'N/A'}</div>
+              <div>Manager: {manager ? manager.name : 'N/A'}</div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                className="p-2 rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                aria-label="View Property"
+              >
+                <Eye size={16} />
+              </button>
+              <button
+                className="p-2 rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                onClick={() => handleEditProperty(property.property_id)}
+                aria-label="Edit Property"
+              >
+                <Edit size={16} />
+              </button>
+              <button
+                className="p-2 rounded-md bg-gray-100 text-red-600 hover:bg-red-100 transition-colors"
+                onClick={() => handleDeleteProperty(property.property_id)}
+                aria-label="Delete Property"
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
-      <div className="p-5">
-        <div className="flex items-start justify-between mb-3">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900">
+    );
+  };
+
+  // Update PropertyListView
+  const PropertyListView = ({ property }: { property: Property }) => {
+    const manager = managers.find((m) => m.manager_id === property.manager_id);
+    return (
+      <div className="bg-white rounded-lg border border-gray-200 p-5 flex items-center gap-5 hover:shadow-md transition-shadow">
+        <div className="w-20 h-20 bg-gray-200 rounded-md flex items-center justify-center text-gray-400 flex-shrink-0">
+          <Home size={32} />
+        </div>
+        <div className="grid grid-cols-[2fr_1fr_1fr_auto] gap-5 items-center flex-1">
+          <div className="flex flex-col gap-1">
+            <h3 className="text-base font-semibold text-gray-900">
               {property.name}
             </h3>
             <p className="text-sm text-gray-600 flex items-center gap-1">
-              <MapPin size={14} />
+              <MapPin size={12} />
               {property.address}
             </p>
+            <span
+              className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusClass(
+                property.status
+              )}`}
+            >
+              {property.status}
+            </span>
           </div>
-          <span
-            className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusClass(
-              property.status
-            )}`}
-          >
-            {property.status}
-          </span>
-        </div>
-        <div className="grid grid-cols-3 gap-3 mb-4">
-          <div className="text-center bg-gray-50 p-2 rounded-md">
-            <p className="text-base font-semibold text-gray-900">
-              {property.total_units}
-            </p>
-            <p className="text-xs text-gray-600">Total Units</p>
-          </div>
-          {/* Placeholder for occupiedUnits and vacantUnits */}
-          <div className="text-center bg-gray-50 p-2 rounded-md">
-            <p className="text-base font-semibold text-gray-900">-</p>
-            <p className="text-xs text-gray-600">Occupied</p>
-          </div>
-          <div className="text-center bg-gray-50 p-2 rounded-md">
-            <p className="text-base font-semibold text-gray-900">-</p>
-            <p className="text-xs text-gray-600">Vacant</p>
-          </div>
-        </div>
-        <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-          <div className="text-sm text-gray-600">
+          <div className="flex flex-col gap-1 text-sm text-gray-600">
+            <div>Total Units: {property.total_units}</div>
+            <div>Manager: {manager ? manager.name : 'N/A'}</div>
             <div>Last Inspection: {property.last_inspection || 'N/A'}</div>
+          </div>
+          <div className="flex flex-col gap-1 text-sm text-gray-600">
+            {/* Placeholder for additional stats */}
           </div>
           <div className="flex gap-2">
             <button
@@ -353,65 +444,8 @@ const PropertiesPage = () => {
           </div>
         </div>
       </div>
-    </div>
-  );
-
-  // PropertyListView component
-  const PropertyListView = ({ property }: { property: Property }) => (
-    <div className="bg-white rounded-lg border border-gray-200 p-5 flex items-center gap-5 hover:shadow-md transition-shadow">
-      <div className="w-20 h-20 bg-gray-200 rounded-md flex items-center justify-center text-gray-400 flex-shrink-0">
-        <Home size={32} />
-      </div>
-      <div className="grid grid-cols-[2fr_1fr_1fr_auto] gap-5 items-center flex-1">
-        <div className="flex flex-col gap-1">
-          <h3 className="text-base font-semibold text-gray-900">
-            {property.name}
-          </h3>
-          <p className="text-sm text-gray-600 flex items-center gap-1">
-            <MapPin size={12} />
-            {property.address}
-          </p>
-          <span
-            className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusClass(
-              property.status
-            )}`}
-          >
-            {property.status}
-          </span>
-        </div>
-        <div className="flex flex-col gap-1 text-sm text-gray-600">
-          <div>Total Units: {property.total_units}</div>
-          <div>Manager ID: {property.manager_id}</div>
-          <div>Last Inspection: {property.last_inspection || 'N/A'}</div>
-        </div>
-        <div className="flex flex-col gap-1 text-sm text-gray-600">
-          {/* Placeholder for additional stats */}
-        </div>
-        <div className="flex gap-2">
-          <button
-            className="p-2 rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
-            aria-label="View Property"
-          >
-            <Eye size={16} />
-          </button>
-          <button
-            className="p-2 rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
-            onClick={() => handleEditProperty(property.property_id)}
-            aria-label="Edit Property"
-          >
-            <Edit size={16} />
-          </button>
-          <button
-            className="p-2 rounded-md bg-gray-100 text-red-600 hover:bg-red-100 transition-colors"
-            onClick={() => handleDeleteProperty(property.property_id)}
-            aria-label="Delete Property"
-          >
-            <Trash2 size={16} />
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans text-gray-900 p-6">
@@ -574,7 +608,7 @@ const PropertiesPage = () => {
       {/* Form Modal */}
       {isFormModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white p-6 rounded-lg max-w-lg max-h-[80vh] overflow-y-auto">
+          <div className="bg-white p-6 rounded-lg w-full max-w-2xl max-h-[80vh] overflow-y-auto">
             <h2 className="text-xl font-bold mb-4">
               {editMode ? 'Edit Property' : 'Add Property'}
             </h2>
@@ -688,18 +722,23 @@ const PropertiesPage = () => {
                   htmlFor="manager_id"
                   className="block text-sm font-medium text-gray-700 mb-1"
                 >
-                  Manager ID
+                  Property Manager <span className="text-red-500">*</span>
                 </label>
-                <input
+                <select
                   id="manager_id"
                   name="manager_id"
-                  type="number"
                   value={formData.manager_id}
                   onChange={handleInputChange}
-                  placeholder="Manager ID"
                   className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                   required
-                />
+                >
+                  <option value="0">Select Manager</option>
+                  {managers.map((manager) => (
+                    <option key={manager.manager_id} value={manager.manager_id}>
+                      {manager.name}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="flex gap-3 mt-4">
                 <button
