@@ -82,6 +82,20 @@ const getAmenityIcon = (amenity: string) => {
 
 const Unit = () => {
   // State definitions with precise types
+
+  const [formErrors, setFormErrors] = useState<{
+    unit_number?: string;
+    property_id?: string;
+    unit_status?: string;
+    unit_type?: string;
+    monthly_rent?: string;
+    bedroom_count?: string;
+    bathroom_count?: string;
+    security_deposit?: string;
+    floor_number?: string;
+    tenant_id?: string;
+  }>({});
+
   const [units, setUnits] = useState<UnitType[]>([]);
   const [properties, setProperties] = useState<
     { property_id: number; name: string }[]
@@ -134,8 +148,8 @@ const Unit = () => {
   const availableUnitTypes = [...new Set(units.map((u) => u.unit_type))].sort();
 
   useEffect(() => {
+    let db: Database | null = null;
     async function fetchProperties() {
-      let db;
       try {
         setLoading(true);
         db = await Database.load('sqlite:test4.db');
@@ -155,10 +169,12 @@ const Unit = () => {
     fetchProperties();
 
     async function fetchUnits() {
-      let db;
       try {
         setLoading(true);
-        db = await Database.load('sqlite:test4.db');
+        if (!db) {
+          db = await Database.load('sqlite:test4.db');
+        }
+
         const dbUnits = await db.select<
           {
             unit_id: number;
@@ -221,7 +237,7 @@ const Unit = () => {
         setFilteredUnits(processedUnits);
       } catch (err) {
         console.error('Error fetching units:', err);
-        setError('Failed to get units - check console');
+        // setError('Failed to get units - check console');
       } finally {
         setLoading(false);
         if (db) await db.close();
@@ -250,6 +266,48 @@ const Unit = () => {
     });
     setFilteredUnits(currentFilteredUnits);
   }, [searchTerm, filterStatus, filterProperty, filterUnitType, units]);
+
+  const validateForm = (data: typeof newUnitData) => {
+    const errors: typeof formErrors = {};
+
+    // Required fields
+    if (!data.unit_number.trim()) {
+      errors.unit_number = 'Unit number is required';
+    }
+    if (!data.property_id) {
+      errors.property_id = 'Property is required';
+    }
+    if (!data.unit_status) {
+      errors.unit_status = 'Status is required';
+    }
+    if (!data.unit_type.trim()) {
+      errors.unit_type = 'Unit type is required';
+    }
+    if (!data.monthly_rent) {
+      errors.monthly_rent = 'Monthly rent is required';
+    } else if (parseFloat(data.monthly_rent) <= 0) {
+      errors.monthly_rent = 'Monthly rent must be a positive number';
+    }
+
+    // Optional fields with constraints
+    if (data.bedroom_count && parseInt(data.bedroom_count) < 0) {
+      errors.bedroom_count = 'Bedroom count cannot be negative';
+    }
+    if (data.bathroom_count && parseInt(data.bathroom_count) < 0) {
+      errors.bathroom_count = 'Bathroom count cannot be negative';
+    }
+    if (data.security_deposit && parseFloat(data.security_deposit) < 0) {
+      errors.security_deposit = 'Security deposit cannot be negative';
+    }
+    if (data.floor_number && parseInt(data.floor_number) < 0) {
+      errors.floor_number = 'Floor number cannot be negative';
+    }
+    if (data.tenant_id && !/^[A-Za-z0-9-]+$/.test(data.tenant_id)) {
+      errors.tenant_id = 'Invalid tenant ID format';
+    }
+
+    return errors;
+  };
 
   const handleSaveUnit = async (unitData: any) => {
     let db;
@@ -415,6 +473,12 @@ const Unit = () => {
 
   const handleUpdateUnit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const errors = validateForm(newUnitData);
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+
     const updatedUnit = { ...newUnitData, unit_id: editingUnitId };
     await handleSaveUnit(updatedUnit);
     setIsAddUnitModalOpen(false);
@@ -433,11 +497,18 @@ const Unit = () => {
       notes: '',
     });
     setEditingUnitId(null);
+    setFormErrors({}); // Clear errors
     setModalMode('add');
   };
 
   const handleAddUnit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const errors = validateForm(newUnitData);
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+
     console.log('Adding new unit with data:', newUnitData);
     await handleSaveUnit(newUnitData);
   };
@@ -891,6 +962,11 @@ const Unit = () => {
             <h2 className="text-2xl font-bold mb-6 text-gray-900">
               {modalMode === 'edit' ? 'Edit Unit' : 'Add New Unit'}
             </h2>
+            {error && (
+              <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm">
+                {error}
+              </div>
+            )}
             <form
               onSubmit={modalMode === 'edit' ? handleUpdateUnit : handleAddUnit}
               className="grid grid-cols-1 md:grid-cols-2 gap-6"
@@ -906,7 +982,11 @@ const Unit = () => {
                   <input
                     type="text"
                     id="unit_number"
-                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    className={`w-full p-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 ${
+                      formErrors.unit_number
+                        ? 'border-red-500'
+                        : 'border-gray-300'
+                    }`}
                     value={newUnitData.unit_number}
                     onChange={(e) =>
                       setNewUnitData({
@@ -916,6 +996,11 @@ const Unit = () => {
                     }
                     required
                   />
+                  {formErrors.unit_number && (
+                    <p className="mt-1 text-sm text-red-600">
+                      {formErrors.unit_number}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label
@@ -926,7 +1011,11 @@ const Unit = () => {
                   </label>
                   <select
                     id="property_id"
-                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    className={`w-full p-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 ${
+                      formErrors.property_id
+                        ? 'border-red-500'
+                        : 'border-gray-300'
+                    }`}
                     value={newUnitData.property_id}
                     onChange={(e) =>
                       setNewUnitData({
@@ -943,13 +1032,18 @@ const Unit = () => {
                       </option>
                     ))}
                   </select>
+                  {formErrors.property_id && (
+                    <p className="mt-1 text-sm text-red-600">
+                      {formErrors.property_id}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label
                     htmlFor="block_label"
                     className="block text-sm font-medium text-gray-700 mb-1"
                   >
-                    Block
+                    Block (optional)
                   </label>
                   <input
                     type="text"
@@ -974,7 +1068,11 @@ const Unit = () => {
                   <input
                     type="number"
                     id="floor_number"
-                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    className={`w-full p-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 ${
+                      formErrors.floor_number
+                        ? 'border-red-500'
+                        : 'border-gray-300'
+                    }`}
                     value={newUnitData.floor_number}
                     onChange={(e) =>
                       setNewUnitData({
@@ -983,6 +1081,11 @@ const Unit = () => {
                       })
                     }
                   />
+                  {formErrors.floor_number && (
+                    <p className="mt-1 text-sm text-red-600">
+                      {formErrors.floor_number}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label
@@ -993,7 +1096,11 @@ const Unit = () => {
                   </label>
                   <select
                     id="unit_status"
-                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    className={`w-full p-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 ${
+                      formErrors.unit_status
+                        ? 'border-red-500'
+                        : 'border-gray-300'
+                    }`}
                     value={newUnitData.unit_status}
                     onChange={(e) =>
                       setNewUnitData({
@@ -1008,6 +1115,11 @@ const Unit = () => {
                     <option value="Maintenance">Maintenance</option>
                     <option value="Reserved">Reserved</option>
                   </select>
+                  {formErrors.unit_status && (
+                    <p className="mt-1 text-sm text-red-600">
+                      {formErrors.unit_status}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label
@@ -1019,7 +1131,11 @@ const Unit = () => {
                   <input
                     type="text"
                     id="unit_type"
-                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    className={`w-full p-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 ${
+                      formErrors.unit_type
+                        ? 'border-red-500'
+                        : 'border-gray-300'
+                    }`}
                     value={newUnitData.unit_type}
                     onChange={(e) =>
                       setNewUnitData({
@@ -1029,6 +1145,11 @@ const Unit = () => {
                     }
                     required
                   />
+                  {formErrors.unit_type && (
+                    <p className="mt-1 text-sm text-red-600">
+                      {formErrors.unit_type}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label
@@ -1040,7 +1161,11 @@ const Unit = () => {
                   <input
                     type="number"
                     id="bedroom_count"
-                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    className={`w-full p-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 ${
+                      formErrors.bedroom_count
+                        ? 'border-red-500'
+                        : 'border-gray-300'
+                    }`}
                     value={newUnitData.bedroom_count}
                     onChange={(e) =>
                       setNewUnitData({
@@ -1048,7 +1173,13 @@ const Unit = () => {
                         bedroom_count: e.target.value,
                       })
                     }
+                    required
                   />
+                  {formErrors.bedroom_count && (
+                    <p className="mt-1 text-sm text-red-600">
+                      {formErrors.bedroom_count}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label
@@ -1060,7 +1191,11 @@ const Unit = () => {
                   <input
                     type="number"
                     id="bathroom_count"
-                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    className={`w-full p-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 ${
+                      formErrors.bathroom_count
+                        ? 'border-red-500'
+                        : 'border-gray-300'
+                    }`}
                     value={newUnitData.bathroom_count}
                     onChange={(e) =>
                       setNewUnitData({
@@ -1068,7 +1203,13 @@ const Unit = () => {
                         bathroom_count: e.target.value,
                       })
                     }
+                    required
                   />
+                  {formErrors.bathroom_count && (
+                    <p className="mt-1 text-sm text-red-600">
+                      {formErrors.bathroom_count}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label
@@ -1080,7 +1221,11 @@ const Unit = () => {
                   <input
                     type="number"
                     id="monthly_rent"
-                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    className={`w-full p-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 ${
+                      formErrors.monthly_rent
+                        ? 'border-red-500'
+                        : 'border-gray-300'
+                    }`}
                     value={newUnitData.monthly_rent}
                     onChange={(e) =>
                       setNewUnitData({
@@ -1090,6 +1235,11 @@ const Unit = () => {
                     }
                     required
                   />
+                  {formErrors.monthly_rent && (
+                    <p className="mt-1 text-sm text-red-600">
+                      {formErrors.monthly_rent}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label
@@ -1101,7 +1251,11 @@ const Unit = () => {
                   <input
                     type="number"
                     id="security_deposit"
-                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    className={`w-full p-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 ${
+                      formErrors.security_deposit
+                        ? 'border-red-500'
+                        : 'border-gray-300'
+                    }`}
                     value={newUnitData.security_deposit}
                     onChange={(e) =>
                       setNewUnitData({
@@ -1110,6 +1264,40 @@ const Unit = () => {
                       })
                     }
                   />
+                  {formErrors.security_deposit && (
+                    <p className="mt-1 text-sm text-red-600">
+                      {formErrors.security_deposit}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label
+                    htmlFor="tenant_id"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    Tenant ID (optional)
+                  </label>
+                  <input
+                    type="text"
+                    id="tenant_id"
+                    className={`w-full p-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 ${
+                      formErrors.tenant_id
+                        ? 'border-red-500'
+                        : 'border-gray-300'
+                    }`}
+                    value={newUnitData.tenant_id}
+                    onChange={(e) =>
+                      setNewUnitData({
+                        ...newUnitData,
+                        tenant_id: e.target.value,
+                      })
+                    }
+                  />
+                  {formErrors.tenant_id && (
+                    <p className="mt-1 text-sm text-red-600">
+                      {formErrors.tenant_id}
+                    </p>
+                  )}
                 </div>
                 <div className="md:col-span-2">
                   <label
@@ -1129,11 +1317,13 @@ const Unit = () => {
                   ></textarea>
                 </div>
               </div>
-
               <div className="md:col-span-2 flex justify-end gap-3 mt-6">
                 <button
                   type="button"
-                  onClick={() => setIsAddUnitModalOpen(false)}
+                  onClick={() => {
+                    setIsAddUnitModalOpen(false);
+                    setFormErrors({});
+                  }}
                   className="px-4 py-2 rounded-lg bg-gray-200 text-gray-800 hover:bg-gray-300 transition duration-200 ease-in-out shadow-md"
                 >
                   Cancel
@@ -1146,7 +1336,6 @@ const Unit = () => {
           </div>
         </div>
       )}
-
       {isViewUnitModalOpen && selectedUnit && (
         <div className={modalOverlayClass} data-state="open">
           <div className={modalContentClass} role="dialog" aria-modal="true">
