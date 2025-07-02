@@ -672,15 +672,27 @@ const PropertiesPage = () => {
                 >
                   Property Type
                 </label>
-                <input
+                <select
                   id="property_type"
                   name="property_type"
                   value={formData.property_type}
                   onChange={handleInputChange}
-                  placeholder="Property Type"
                   className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                   required
-                />
+                >
+                  <option value="">Select Property Type</option>
+                  <option value="Single">Single</option>
+                  <option value="1bedroom">1 Bedroom</option>
+                  <option value="2bedroom">2 Bedroom</option>
+                  <option value="3bedroom">3 Bedroom</option>
+                  <option value="4bedroom">4 Bedroom</option>
+                  <option value="5bedroom">5 Bedroom</option>
+                  <option value="6bedroom">6 Bedroom</option>
+                  <option value="7bedroom">7 Bedroom</option>
+                  <option value="8bedroom">8 Bedroom</option>
+                  <option value="9bedroom">9 Bedroom</option>
+                  <option value="10bedroom">10 Bedroom</option>
+                </select>
               </div>
               <div>
                 <label
