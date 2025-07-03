@@ -38,7 +38,7 @@ interface UnitType {
   unit_number: string;
   property_id: number;
   property_name: string;
-  block_label: string | null;
+  block_id: string | null;
   floor_number: number | null;
   unit_status: string;
   unit_type: string;
@@ -118,7 +118,7 @@ const Unit = () => {
   const [newUnitData, setNewUnitData] = useState<{
     unit_number: string;
     property_id: string;
-    block_label: string;
+    block_id: string;
     floor_number: string;
     unit_status: string;
     unit_type: string;
@@ -131,7 +131,7 @@ const Unit = () => {
   }>({
     unit_number: '',
     property_id: '',
-    block_label: '',
+    block_id: '',
     floor_number: '',
     unit_status: 'Available',
     unit_type: '',
@@ -152,7 +152,7 @@ const Unit = () => {
     async function fetchProperties() {
       try {
         setLoading(true);
-        db = await Database.load('sqlite:test4.db');
+        db = await Database.load('sqlite:test6.db');
         const dbProperties: any = await db.select(
           `SELECT property_id, name FROM properties`
         );
@@ -172,7 +172,7 @@ const Unit = () => {
       try {
         setLoading(true);
         if (!db) {
-          db = await Database.load('sqlite:test4.db');
+          db = await Database.load('sqlite:test6.db');
         }
 
         const dbUnits = await db.select<
@@ -181,7 +181,7 @@ const Unit = () => {
             unit_number: string;
             property_id: number;
             property_name: string;
-            block_label: string | null;
+            block_id: string | null;
             floor_number: number | null;
             unit_status: string;
             unit_type: string;
@@ -199,7 +199,7 @@ const Unit = () => {
           }[]
         >(`
           SELECT u.unit_id, u.unit_number, u.property_id, p.name AS property_name, 
-                 u.block_label, u.floor_number, u.unit_status, u.unit_type, 
+                 u.block_id, u.floor_number, u.unit_status, u.unit_type, 
                  u.bedroom_count, u.bathroom_count, u.monthly_rent, u.security_deposit, 
                  u.tenant_id, u.notes, t.full_name AS tenant_name, t.lease_end_date
           FROM units u
@@ -212,7 +212,7 @@ const Unit = () => {
           unit_number: unit.unit_number,
           property_id: unit.property_id,
           property_name: unit.property_name,
-          block_label: unit.block_label,
+          block_id: unit.block_id,
           floor_number: unit.floor_number,
           unit_status: unit.unit_status,
           unit_type: unit.unit_type,
@@ -252,7 +252,7 @@ const Unit = () => {
         searchTerm === '' ||
         unit.unit_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
         unit.property_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (unit.block_label?.toLowerCase().includes(searchTerm.toLowerCase()) ??
+        (unit.block_id?.toLowerCase().includes(searchTerm.toLowerCase()) ??
           false);
       const matchesStatus =
         filterStatus === 'All' || unit.unit_status === filterStatus;
@@ -312,7 +312,7 @@ const Unit = () => {
   const handleSaveUnit = async (unitData: any) => {
     let db;
     try {
-      db = await Database.load('sqlite:test4.db');
+      db = await Database.load('sqlite:test6.db');
       setLoading(true);
 
       const propertyCheck = await db.select<{ property_id: number }[]>(
@@ -340,14 +340,14 @@ const Unit = () => {
 
       if (existingUnit.length > 0) {
         await db.execute(
-          `UPDATE units SET unit_number = $1, property_id = $2, block_label = $3, 
+          `UPDATE units SET unit_number = $1, property_id = $2, block_id = $3, 
            floor_number = $4, unit_status = $5, unit_type = $6, bedroom_count = $7, 
            bathroom_count = $8, monthly_rent = $9, security_deposit = $10, notes = $11, tenant_id = $12 
            WHERE unit_id = $13`,
           [
             unitData.unit_number,
             parseInt(unitData.property_id) || null,
-            unitData.block_label || null,
+            unitData.block_id || null,
             parseInt(unitData.floor_number) || null,
             unitData.unit_status,
             unitData.unit_type,
@@ -362,14 +362,14 @@ const Unit = () => {
         );
       } else {
         await db.execute(
-          `INSERT INTO units (unit_number, property_id, block_label, 
+          `INSERT INTO units (unit_number, property_id, block_id, 
            floor_number, unit_status, unit_type, bedroom_count, bathroom_count, 
            monthly_rent, security_deposit, notes, tenant_id) 
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
           [
             unitData.unit_number,
             parseInt(unitData.property_id) || null,
-            unitData.block_label || null,
+            unitData.block_id || null,
             parseInt(unitData.floor_number) || null,
             unitData.unit_status,
             unitData.unit_type,
@@ -389,7 +389,7 @@ const Unit = () => {
           unit_number: string;
           property_id: number;
           property_name: string;
-          block_label: string | null;
+          block_id: string | null;
           floor_number: number | null;
           unit_status: string;
           unit_type: string;
@@ -407,7 +407,7 @@ const Unit = () => {
         }[]
       >(`
         SELECT u.unit_id, u.unit_number, u.property_id, p.name AS property_name, 
-               u.block_label, u.floor_number, u.unit_status, u.unit_type, 
+               u.block_id, u.floor_number, u.unit_status, u.unit_type, 
                u.bedroom_count, u.bathroom_count, u.monthly_rent, u.security_deposit, 
                u.tenant_id, u.notes, t.full_name AS tenant_name, t.lease_end_date
         FROM units u
@@ -419,7 +419,7 @@ const Unit = () => {
         unit_number: unit.unit_number,
         property_id: unit.property_id,
         property_name: unit.property_name,
-        block_label: unit.block_label,
+        block_id: unit.block_id,
         floor_number: unit.floor_number,
         unit_status: unit.unit_status,
         unit_type: unit.unit_type,
@@ -446,7 +446,7 @@ const Unit = () => {
       setNewUnitData({
         unit_number: '',
         property_id: '',
-        block_label: '',
+        block_id: '',
         floor_number: '',
         unit_status: 'Available',
         unit_type: '',
@@ -485,7 +485,7 @@ const Unit = () => {
     setNewUnitData({
       unit_number: '',
       property_id: '',
-      block_label: '',
+      block_id: '',
       floor_number: '',
       unit_status: 'Available',
       unit_type: '',
@@ -527,7 +527,7 @@ const Unit = () => {
       setNewUnitData({
         unit_number: unitToEdit.unit_number,
         property_id: unitToEdit.property_id.toString(),
-        block_label: unitToEdit.block_label || '',
+        block_id: unitToEdit.block_id || '',
         floor_number: unitToEdit.floor_number?.toString() || '',
         unit_status: unitToEdit.unit_status,
         unit_type: unitToEdit.unit_type,
@@ -552,7 +552,7 @@ const Unit = () => {
     if (window.confirm(`Are you sure you want to delete unit ${unitId}?`)) {
       try {
         setLoading(true);
-        const db = await Database.load('sqlite:test4.db');
+        const db = await Database.load('sqlite:test6.db');
         await db.execute(`DELETE FROM units WHERE unit_id = $1`, [unitId]);
         setUnits(units.filter((unit) => unit.unit_id !== unitId));
         setError('');
@@ -806,7 +806,7 @@ const Unit = () => {
                   </div>
                   <p className="text-sm text-gray-600 flex items-center gap-2 mb-1">
                     <Building2 className="w-4 h-4" /> {unit.property_name},
-                    Block {unit.block_label || 'N/A'}, Floor{' '}
+                    Block {unit.block_id || 'N/A'}, Floor{' '}
                     {unit.floor_number || 'N/A'}
                   </p>
                   <p className="text-sm text-gray-600 flex items-center gap-2 mb-1">
@@ -899,7 +899,7 @@ const Unit = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {unit.property_name} (Block {unit.block_label || 'N/A'},
+                      {unit.property_name} (Block {unit.block_id || 'N/A'},
                       Floor {unit.floor_number || 'N/A'})
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -1040,20 +1040,20 @@ const Unit = () => {
                 </div>
                 <div>
                   <label
-                    htmlFor="block_label"
+                    htmlFor="block_id"
                     className="block text-sm font-medium text-gray-700 mb-1"
                   >
                     Block (optional)
                   </label>
                   <input
                     type="text"
-                    id="block_label"
+                    id="block_id"
                     className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                    value={newUnitData.block_label}
+                    value={newUnitData.block_id}
                     onChange={(e) =>
                       setNewUnitData({
                         ...newUnitData,
-                        block_label: e.target.value,
+                        block_id: e.target.value,
                       })
                     }
                   />
@@ -1347,7 +1347,7 @@ const Unit = () => {
                 </h3>
                 <p className="text-sm text-gray-600 mb-2">
                   {selectedUnit.property_name}, Block{' '}
-                  {selectedUnit.block_label || 'N/A'}, Floor{' '}
+                  {selectedUnit.block_id || 'N/A'}, Floor{' '}
                   {selectedUnit.floor_number || 'N/A'}
                 </p>
                 <span

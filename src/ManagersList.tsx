@@ -23,7 +23,7 @@ const ManagersList: React.FC = () => {
   const [selectedManager, setSelectedManager] = useState<Manager | null>(null);
 
   async function fetchManagers() {
-    const db = await Database.load('sqlite:test4.db');
+    const db = await Database.load('sqlite:test6.db');
     try {
       setLoading(true);
 
@@ -55,7 +55,7 @@ const ManagersList: React.FC = () => {
   const handleSaveManager = async (
     managerData: Omit<Manager, 'manager_id'> | Manager
   ) => {
-    const db = await Database.load('sqlite:test4.db');
+    const db = await Database.load('sqlite:test6.db');
     setLoading(true);
     try {
       if ('manager_id' in managerData && managerData.manager_id !== null) {
@@ -95,7 +95,7 @@ const ManagersList: React.FC = () => {
 
   const handleDeleteManager = async () => {
     if (!selectedManager) return;
-    const db = await Database.load('sqlite:test4.db');
+    const db = await Database.load('sqlite:test6.db');
     setLoading(true);
     try {
       await db.execute(`DELETE FROM managers WHERE manager_id = $1`, [

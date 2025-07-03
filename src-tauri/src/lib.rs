@@ -104,7 +104,7 @@ pub fn run() {
                 unit_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 unit_number TEXT NOT NULL,
                 property_id INTEGER NOT NULL,
-                block_label TEXT,
+                block_id TEXT,
                 floor_number INTEGER,
                 unit_status TEXT NOT NULL, -- e.g. 'vacant', 'occupied', etc.
                 unit_type TEXT NOT NULL,
@@ -311,13 +311,33 @@ INSERT INTO managers (name, email, phone, hire_date) VALUES
     ",
     kind: MigrationKind::Up, // This is an "Up" migration to apply changes
 },
+
+        Migration {
+            version: 13, // <-- Increment this version number
+            description: "seed_managers_table",
+            sql: "
+            ALTER TABLE payments ADD COLUMN payment_month TEXT NOT NULL DEFAULT '';
+            UPDATE payments SET payment_month = strftime('%Y-%m', due_date) WHERE payment_month = '';
+            ",
+            kind: MigrationKind::Up, // This is an "Up" migration to apply changes
+},
+      Migration {
+            version: 14, // <-- Increment this version number
+            description: "create_indexes_on_payments_table",
+            sql: "
+                CREATE INDEX idx_payment_month ON payments(payment_month);
+                CREATE INDEX idx_tenant_id ON payments(tenant_id);
+                CREATE INDEX idx_unit_id ON payments(unit_id);
+            ",
+            kind: MigrationKind::Up, // This is an "Up" migration to apply changes
+},
     ];
 
     tauri::Builder::default()
         .plugin(tauri_plugin_sql::Builder::new().build())
         .plugin(
             SqlBuilder::default() // Use our aliased Builder
-                .add_migrations("sqlite:test4.db", migrations) // 'test4.db' is our database file
+                .add_migrations("sqlite:test6.db", migrations) // 'test4.db' is our database file
                 .build(),
         )
         .plugin(tauri_plugin_opener::init())

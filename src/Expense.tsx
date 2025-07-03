@@ -88,7 +88,7 @@ const ExpensePage: React.FC = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const db = await Database.load('sqlite:test4.db');
+      const db = await Database.load('sqlite:test6.db');
 
       // Use a safer query that handles missing block_id by making it optional
       const dbExpenses: any = await db.select(
@@ -107,7 +107,7 @@ const ExpensePage: React.FC = () => {
       setExpenses(dbExpenses as Expense[]);
 
       const dbUnits = await db.select(
-        `SELECT unit_id, unit_number, block_label as block_id FROM units`
+        `SELECT unit_id, unit_number,block_id FROM units`
       );
       setUnits(
         dbUnits as { unit_id: number; unit_number: string; block_id: number }[]
@@ -142,7 +142,7 @@ const ExpensePage: React.FC = () => {
 
   const handleEditExpenseSubmit = async (editedExpenseData: Expense) => {
     try {
-      const db = await Database.load('sqlite:test4.db');
+      const db = await Database.load('sqlite:test6.db');
       const result = await db.execute(
         `UPDATE expenses
          SET amount = $1, category = $2, description = $3, expense_date = $4, unit_id = $5, block_id = $6, property_id = $7,
@@ -193,7 +193,7 @@ const ExpensePage: React.FC = () => {
     if (!window.confirm('Are you sure you want to delete this expense?'))
       return;
     try {
-      const db = await Database.load('sqlite:test4.db');
+      const db = await Database.load('sqlite:test6.db');
       const result = await db.execute(
         `DELETE FROM expenses WHERE expense_id = $1`,
         [expense_id]
@@ -210,7 +210,7 @@ const ExpensePage: React.FC = () => {
 
   const handleAddExpenseSubmit = async (newExpenseData: NewExpense) => {
     try {
-      const db = await Database.load('sqlite:test4.db');
+      const db = await Database.load('sqlite:test6.db');
       const result = await db.execute(
         `INSERT INTO expenses (expense_id, amount, category, description, expense_date, unit_id, block_id, property_id,
           payment_method, vendor, invoice_number, paid_by, created_at)

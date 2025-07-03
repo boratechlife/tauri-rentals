@@ -59,7 +59,7 @@ const PropertyManagerDashboard = () => {
   const [loading, setLoading] = useState<boolean>(true);
 
   async function fetchStats(): Promise<StatsData> {
-    const db = await Database.load('sqlite:test4.db');
+    const db = await Database.load('sqlite:test6.db');
     try {
       const results = await db.select<StatsData[]>(`
         SELECT 
@@ -83,7 +83,7 @@ const PropertyManagerDashboard = () => {
   useEffect(() => {
     async function loadTasks() {
       try {
-        const db = await Database.load('sqlite:test4.db');
+        const db = await Database.load('sqlite:test6.db');
         const data = await db.select<Task[]>(
           `SELECT task_name as task, due_date as due, priority FROM tasks ORDER BY due_date ASC LIMIT 5;`
         );
@@ -100,7 +100,7 @@ const PropertyManagerDashboard = () => {
 
   useEffect(() => {
     async function fetchData() {
-      const db = await Database.load('sqlite:test4.db');
+      const db = await Database.load('sqlite:test6.db');
       try {
         const [activitiesData, statsData] = await Promise.all([
           db.select<Activity[]>(

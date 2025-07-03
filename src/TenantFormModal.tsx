@@ -48,7 +48,7 @@ export const TenantFormModal: React.FC<TenantFormModalProps> = ({
   useEffect(() => {
     async function fetchUnits() {
       try {
-        const db = await Database.load('sqlite:test4.db');
+        const db = await Database.load('sqlite:test6.db');
         const dbUnits = await db.select(`
           SELECT unit_id, unit_number 
           FROM units

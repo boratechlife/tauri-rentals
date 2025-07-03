@@ -5,15 +5,16 @@ import Database from '@tauri-apps/plugin-sql';
 
 // Initial form state for adding/editing payments
 export const initialPaymentFormState: Omit<Payment, 'payment_id'> = {
-  tenant_id: 0, // Default to 0, will be updated with a select
-  unit_id: 0, // Default to 0, will be updated with a select
-  property_id: 0, // Default to 0, will be updated with a select
+  tenant_id: 0,
+  unit_id: 0,
+  property_id: 0,
   amount_paid: 0,
-  payment_date: new Date().toISOString().split('T')[0], // Current date for new payments
+  payment_date: new Date().toISOString().split('T')[0],
   due_date: '',
   payment_status: 'Pending',
   payment_method: 'Bank Transfer',
   payment_category: 'Rent',
+  payment_month: '', // Added to match Payment interface
   receipt_number: undefined,
   transaction_reference: undefined,
   remarks: undefined,
@@ -53,14 +54,23 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
 
   // Update form data when initialData changes (for editing)
   useEffect(() => {
-    setFormData(initialData || initialPaymentFormState);
+    if (initialData) {
+      setFormData({
+        ...initialData,
+        payment_month: initialData.due_date
+          ? initialData.due_date.slice(0, 7)
+          : '',
+      });
+    } else {
+      setFormData(initialPaymentFormState);
+    }
   }, [initialData]);
 
   // Fetch tenants, units, and properties for dropdowns
   useEffect(() => {
     async function fetchData() {
       try {
-        const db = await Database.load('sqlite:test4.db');
+        const db = await Database.load('sqlite:test6.db');
         const dbTenants = await db.select(`
           SELECT tenant_id, full_name FROM tenants
         `);
@@ -86,7 +96,6 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
     >
   ) => {
     const { name, value } = e.target;
-    console.log('handleChange', name, value);
     setFormData((prevData) => ({
       ...prevData,
       [name]:
@@ -95,15 +104,23 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
         name === 'unit_id' ||
         name === 'property_id'
           ? parseInt(value) || 0
-          : name === 'payment_date' || name === 'due_date'
+          : name === 'due_date'
           ? value
           : value,
+      ...(name === 'due_date' && value
+        ? { payment_month: value.slice(0, 7) }
+        : {}),
     }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData);
+    // Ensure payment_month is set even if due_date hasn't changed
+    const finalFormData = {
+      ...formData,
+      payment_month: formData.due_date ? formData.due_date.slice(0, 7) : '',
+    };
+    onSave(finalFormData);
     onClose();
   };
 
@@ -309,6 +326,53 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
               <option value="Deposit">Deposit</option>
               <option value="Other">Other</option>
             </select>
+          </div>
+          <div>
+            <label
+              htmlFor="receipt_number"
+              className="block text-sm font-medium text-gray-700"
+            >
+              Receipt Number (Optional)
+            </label>
+            <input
+              type="text"
+              id="receipt_number"
+              name="receipt_number"
+              value={formData.receipt_number || ''}
+              onChange={handleChange}
+              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="transaction_reference"
+              className="block text-sm font-medium text-gray-700"
+            >
+              Transaction Reference (Optional)
+            </label>
+            <input
+              type="text"
+              id="transaction_reference"
+              name="transaction_reference"
+              value={formData.transaction_reference || ''}
+              onChange={handleChange}
+              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="remarks"
+              className="block text-sm font-medium text-gray-700"
+            >
+              Remarks (Optional)
+            </label>
+            <textarea
+              id="remarks"
+              name="remarks"
+              value={formData.remarks || ''}
+              onChange={handleChange}
+              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            />
           </div>
           <div className="flex justify-end space-x-3 mt-6">
             <button
