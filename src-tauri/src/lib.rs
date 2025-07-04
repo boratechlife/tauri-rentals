@@ -331,6 +331,24 @@ INSERT INTO managers (name, email, phone, hire_date) VALUES
             ",
             kind: MigrationKind::Up, // This is an "Up" migration to apply changes
 },
+      Migration {
+            version: 15, // <-- Increment this version number
+            description: "create_complaints_table",
+            sql: "
+                    CREATE TABLE IF NOT EXISTS complaints (
+                    complaint_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    unit_id INTEGER NOT NULL,
+                    tenant_id INTEGER,
+                    description TEXT NOT NULL,
+                    status TEXT NOT NULL CHECK(status IN ('Open', 'In Progress', 'Resolved')),
+                    created_at TEXT DEFAULT (datetime('now')),
+                    updated_at TEXT DEFAULT (datetime('now')),
+                    FOREIGN KEY (unit_id) REFERENCES units(unit_id),
+                    FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id)
+                    );
+            ",
+            kind: MigrationKind::Up, // This is an "Up" migration to apply changes
+},
     ];
 
     tauri::Builder::default()

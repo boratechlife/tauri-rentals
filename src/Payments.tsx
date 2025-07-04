@@ -7,7 +7,7 @@ import { DeleteConfirmationModal } from './DeleteConfirmationModal';
 export interface Payment {
   payment_id: string;
   tenant_id: number; // Updated to INTEGER from TEXT
-  unit_id: number; // Updated to INTEGER from TEXT
+  unit_id: any; // Updated to INTEGER from TEXT
   property_id: number; // Updated to INTEGER from TEXT
   payment_month: string; // New field for payment month
   amount_paid: number;
@@ -61,6 +61,16 @@ export interface Property {
   updated_at?: string;
 }
 
+interface ArrearsReport {
+  tenant_id: number;
+  tenant_name: string;
+  unit_number: any;
+  expected_amount: number;
+  total_paid: number;
+  balance: number;
+  status: 'Arrears' | 'Overpaid' | 'Current';
+}
+
 const PropertyManagementDashboard: React.FC = () => {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [searchText, setSearchText] = useState('');
@@ -70,6 +80,9 @@ const PropertyManagementDashboard: React.FC = () => {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterMonth, setFilterMonth] = useState('');
+  const [activeTab, setActiveTab] = useState<'payments' | 'arrears'>(
+    'payments'
+  );
 
   const [showAddEditModal, setShowAddEditModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -107,6 +120,167 @@ const PropertyManagementDashboard: React.FC = () => {
       setLoading(false);
     }
   }
+  async function calculateArrearsReport(
+    month: string
+  ): Promise<ArrearsReport[]> {
+    try {
+      const db = await Database.load('sqlite:test6.db');
+      const tenantsData = await db.select(`
+      SELECT t.tenant_id, t.full_name, t.rent_amount, t.lease_start_date, t.lease_end_date, u.unit_number
+      FROM tenants t
+      LEFT JOIN units u ON t.unit_id = u.unit_id
+      WHERE t.status = 'active'
+    `);
+      const arrearsReport: ArrearsReport[] = [];
+      for (const tenant of tenantsData as Tenant[]) {
+        const leaseStart = new Date(tenant.lease_start_date);
+        const leaseEnd = new Date(tenant.lease_end_date);
+        const selectedMonth = new Date(month + '-01');
+        const isWithinLease =
+          selectedMonth >= leaseStart && selectedMonth <= leaseEnd;
+        if (!isWithinLease) continue;
+        const paymentsForMonth: any = await db.select(
+          `
+  SELECT SUM(amount_paid) as total_paid
+  FROM payments
+  WHERE tenant_id = $1 AND payment_month = $2 AND payment_category = 'Rent'
+`,
+          [tenant.tenant_id, month]
+        );
+        const totalPaid = paymentsForMonth[0]?.total_paid || 0;
+        const balance = tenant.rent_amount - totalPaid;
+
+        let status: 'Arrears' | 'Overpaid' | 'Current';
+        if (balance > 0) {
+          status = 'Arrears';
+        } else if (balance < 0) {
+          status = 'Overpaid';
+        } else {
+          status = 'Current';
+        }
+        arrearsReport.push({
+          tenant_id: tenant.tenant_id,
+          tenant_name: tenant.full_name,
+          unit_number: tenant.unit_id || 'N/A',
+          expected_amount: tenant.rent_amount,
+          total_paid: totalPaid,
+          balance,
+          status,
+        });
+      }
+      return arrearsReport;
+    } catch (err) {
+      console.error('Error calculating arrears report:', err);
+      setError('Failed to generate arrears report');
+      return [];
+    }
+  }
+
+  const ArrearsReportTab: React.FC<{ month: string }> = ({ month }) => {
+    const [arrearsData, setArrearsData] = useState<ArrearsReport[]>([]);
+    const [loadingArrears, setLoadingArrears] = useState(false);
+    useEffect(() => {
+      if (month) {
+        setLoadingArrears(true);
+        calculateArrearsReport(month).then((data) => {
+          setArrearsData(data);
+          setLoadingArrears(false);
+        });
+      }
+    }, [month]);
+    if (loadingArrears) {
+      return (
+        <div className="p-6 text-center text-gray-600">
+          Loading arrears report...
+        </div>
+      );
+    }
+    return (
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h2 className="text-xl font-semibold mb-4">Arrears Report - {month}</h2>
+        <table className="w-full">
+          <thead className="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th className="text-left py-3 px-6 font-semibold text-gray-900">
+                Tenant
+              </th>
+              <th className="text-left py-3 px-6 font-semibold text-gray-900">
+                Unit
+              </th>
+              <th className="text-left py-3 px-6 font-semibold text-gray-900">
+                Expected Amount
+              </th>
+              <th className="text-left py-3 px-6 font-semibold text-gray-900">
+                Total Paid
+              </th>
+              <th className="text-left py-3 px-6 font-semibold text-gray-900">
+                Balance
+              </th>
+              <th className="text-left py-3 px-6 font-semibold text-gray-900">
+                Status
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200">
+            {arrearsData.map((report) => (
+              <tr
+                key={report.tenant_id}
+                className="hover:bg-gray-50 transition-colors"
+              >
+                <td className="py-4 px-6">{report.tenant_name}</td>
+                <td className="py-4 px-6">{report.unit_number}</td>
+                <td className="py-4 px-6">
+                  ${report.expected_amount.toLocaleString()}
+                </td>
+                <td className="py-4 px-6">
+                  ${report.total_paid.toLocaleString()}
+                </td>
+                <td className="py-4 px-6">
+                  ${Math.abs(report.balance).toLocaleString()}
+                </td>
+                <td className="py-4 px-6">
+                  <span
+                    className={`px-2 py-1 rounded ${
+                      report.status === 'Arrears'
+                        ? 'bg-red-100 text-red-800'
+                        : report.status === 'Overpaid'
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-blue-100 text-blue-800'
+                    }`}
+                  >
+                    {report.status}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className="mt-4 flex justify-end">
+          <button
+            onClick={() => {
+              const csv = [
+                'Tenant,Unit,Expected Amount,Total Paid,Balance,Status',
+                ...arrearsData.map(
+                  (r) =>
+                    `${r.tenant_name},${r.unit_number},${r.expected_amount},${r.total_paid},${r.balance},${r.status}`
+                ),
+              ].join('\n');
+              const blob = new Blob([csv], { type: 'text/csv' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `arrears_report_${month}.csv`;
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+            className="px-4 py-2 bg-blue-600 text-white rounded flex items-center gap-2"
+          >
+            <Download size={16} /> Download CSV
+          </button>
+        </div>
+      </div>
+    );
+  };
   async function generateMonthlyReport(month: string) {
     try {
       const db = await Database.load('sqlite:test6.db');
@@ -250,8 +424,10 @@ const PropertyManagementDashboard: React.FC = () => {
   };
   useEffect(() => {
     fetchPayments();
+    calculateArrearsReport('2025-07').then((data) =>
+      console.log('Tenants:', data)
+    );
   }, []);
-
   const filteredPayments = useMemo(() => {
     return payments
       .filter((payment) => {
@@ -286,7 +462,15 @@ const PropertyManagementDashboard: React.FC = () => {
         );
       })
       .sort((a, b) => a.payment_month.localeCompare(b.payment_month));
-  }, [payments, searchText, filterStatus, filterMonth, filterCategory]);
+  }, [
+    payments,
+    searchText,
+    filterStatus,
+    filterMonth,
+    filterCategory,
+    filterMethod,
+  ]);
+
   if (loading) {
     return (
       <div className="p-6 text-center text-gray-600">Loading payments...</div>
@@ -334,7 +518,6 @@ const PropertyManagementDashboard: React.FC = () => {
                   <th className="py-2 px-4 text-left">Amount</th>
                   <th className="py-2 px-4 text-left">Status</th>
                   <th className="py-2 px-4 text-left">Category</th>
-                  <th className="py-2 px-4 text-left">Arrears</th>
                 </tr>
               </thead>
               <tbody>
@@ -345,12 +528,6 @@ const PropertyManagementDashboard: React.FC = () => {
                     <td className="py-2 px-4">${p.amount_paid}</td>
                     <td className="py-2 px-4">{p.payment_status}</td>
                     <td className="py-2 px-4">{p.payment_category}</td>
-                    <td className="py-2 px-4">
-                      {calculateArrears(
-                        tenants.find((t) => t.tenant_id === p.tenant_id)!,
-                        p.payment_month
-                      ).toFixed(2)}
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -376,18 +553,6 @@ const PropertyManagementDashboard: React.FC = () => {
     );
   };
 
-  const calculateArrears = (tenant: Tenant, month: string) => {
-    const rentPayments = payments.filter(
-      (p) =>
-        p.tenant_id === tenant.tenant_id &&
-        p.payment_month === month &&
-        p.payment_category === 'Rent' &&
-        p.payment_status === 'Paid'
-    );
-    const totalPaid = rentPayments.reduce((sum, p) => sum + p.amount_paid, 0);
-    return tenant.rent_amount - totalPaid;
-  };
-
   const isUnitPaid = (unit_id: number, month: string) => {
     const unitPayments = payments.filter(
       (p) =>
@@ -396,213 +561,247 @@ const PropertyManagementDashboard: React.FC = () => {
         p.payment_category === 'Rent' &&
         p.payment_status === 'Paid'
     );
-    return unitPayments.length > 0;
+    return unitPayments.length > 0 ? 'Paid' : 'Unpaid';
   };
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className=" mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-6">
+          <div className="border-b border-gray-200">
+            <nav className="-mb-px flex space-x-8">
+              <button
+                onClick={() => setActiveTab('payments')}
+                className={`${
+                  activeTab === 'payments'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+              >
+                Payments
+              </button>
+              <button
+                onClick={() => setActiveTab('arrears')}
+                className={`${
+                  activeTab === 'arrears'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+              >
+                Arrears Report
+              </button>
+            </nav>
+          </div>
+        </div>
         <div className="space-y-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex flex-wrap gap-4 items-center">
-              <input
-                type="month"
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                value={filterMonth}
-                onChange={(e) => {
-                  if (/^\d{4}-\d{2}$/.test(e.target.value))
-                    setFilterMonth(e.target.value);
-                }}
-              />
-              <div className="relative flex-1 min-w-64">
-                <input
-                  type="text"
-                  placeholder="Search tenant, unit, or property..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  value={searchText}
-                  onChange={(e) => setSearchText(e.target.value)}
-                />
-                <Search
-                  className="absolute left-3 top-2.5 text-gray-400"
-                  size={18}
-                />
+          <input
+            type="month"
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            value={filterMonth}
+            onChange={(e) => {
+              if (/^\d{4}-\d{2}$/.test(e.target.value))
+                setFilterMonth(e.target.value);
+            }}
+          />
+          {activeTab === 'payments' && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="flex flex-wrap gap-4 items-center">
+                <div className="relative flex-1 min-w-64">
+                  <input
+                    type="text"
+                    placeholder="Search tenant, unit, or property..."
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    value={searchText}
+                    onChange={(e) => setSearchText(e.target.value)}
+                  />
+                  <Search
+                    className="absolute left-3 top-2.5 text-gray-400"
+                    size={18}
+                  />
+                </div>
+
+                <select
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                >
+                  <option value="all">All Status</option>
+                  <option value="paid">Paid</option>
+                  <option value="pending">Pending</option>
+                  <option value="overdue">Overdue</option>
+                </select>
+                <select
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  value={filterCategory}
+                  onChange={(e) => setFilterCategory(e.target.value)}
+                >
+                  <option value="all">All Categories</option>
+                  <option value="rent">Rent</option>
+                  <option value="deposit">Deposit</option>
+                  <option value="utilities">Utilities</option>
+                  <option value="other">Other</option>
+                </select>
+
+                <button
+                  onClick={() => {
+                    const csv = [
+                      'Tenant,Unit,Property,Amount,Month,Due Date,Status,Category,Method',
+                      ...payments.map(
+                        (p) =>
+                          `${p.tenant_name},${p.unit_number},${p.property_name},${p.amount_paid},${p.payment_month},${p.due_date},${p.payment_status},${p.payment_category},${p.payment_method}`
+                      ),
+                    ].join('\n');
+                    const blob = new Blob([csv], { type: 'text/csv' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'all_payments.csv';
+                    a.click();
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded"
+                >
+                  Export All
+                </button>
+                <button
+                  onClick={() => setShowReportModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  <Download className="w-4 h-4" /> Generate Report
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedPayment(null);
+                    setShowAddEditModal(true);
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Payment
+                </button>
               </div>
-
-              <select
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-              >
-                <option value="all">All Status</option>
-                <option value="paid">Paid</option>
-                <option value="pending">Pending</option>
-                <option value="overdue">Overdue</option>
-              </select>
-              <select
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                value={filterCategory}
-                onChange={(e) => setFilterCategory(e.target.value)}
-              >
-                <option value="all">All Categories</option>
-                <option value="rent">Rent</option>
-                <option value="deposit">Deposit</option>
-                <option value="utilities">Utilities</option>
-                <option value="other">Other</option>
-              </select>
-
-              <button
-                onClick={() => {
-                  const csv = [
-                    'Tenant,Unit,Property,Amount,Month,Due Date,Status,Category,Method',
-                    ...payments.map(
-                      (p) =>
-                        `${p.tenant_name},${p.unit_number},${p.property_name},${p.amount_paid},${p.payment_month},${p.due_date},${p.payment_status},${p.payment_category},${p.payment_method}`
-                    ),
-                  ].join('\n');
-                  const blob = new Blob([csv], { type: 'text/csv' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = 'all_payments.csv';
-                  a.click();
-                }}
-                className="px-4 py-2 bg-blue-600 text-white rounded"
-              >
-                Export All
-              </button>
-              <button
-                onClick={() => setShowReportModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-              >
-                <Download className="w-4 h-4" /> Generate Report
-              </button>
-              <button
-                onClick={() => {
-                  setSelectedPayment(null);
-                  setShowAddEditModal(true);
-                }}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-                Add Payment
-              </button>
             </div>
-          </div>
+          )}
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="text-left py-3 px-6 font-semibold text-gray-900">
-                      Tenant
-                    </th>
-                    <th className="text-left py-3 px-6 font-semibold text-gray-900">
-                      Property
-                    </th>
-                    <th className="text-left py-3 px-6 font-semibold text-gray-900">
-                      Amount
-                    </th>
-                    <th className="text-left py-3 px-6 font-semibold text-gray-900">
-                      Month
-                    </th>
-                    <th className="text-left py-3 px-6 font-semibold text-gray-900">
-                      Unit
-                    </th>
+          {activeTab === 'payments' ? (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="text-left py-3 px-6 font-semibold text-gray-900">
+                        Tenant
+                      </th>
+                      <th className="text-left py-3 px-6 font-semibold text-gray-900">
+                        Property
+                      </th>
+                      <th className="text-left py-3 px-6 font-semibold text-gray-900">
+                        Amount
+                      </th>
+                      <th className="text-left py-3 px-6 font-semibold text-gray-900">
+                        Month
+                      </th>
+                      <th className="text-left py-3 px-6 font-semibold text-gray-900">
+                        Unit
+                      </th>
 
-                    <th className="text-left py-3 px-6 font-semibold text-gray-900">
-                      Category
-                    </th>
+                      <th className="text-left py-3 px-6 font-semibold text-gray-900">
+                        Category
+                      </th>
 
-                    <th className="text-left py-3 px-6 font-semibold text-gray-900">
-                      Due Date
-                    </th>
-                    <th className="text-left py-3 px-6 font-semibold text-gray-900">
-                      Status
-                    </th>
-                    <th className="text-left py-3 px-6 font-semibold text-gray-900">
-                      Method
-                    </th>
-                    <th className="text-left py-3 px-6 font-semibold text-gray-900">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {filteredPayments.map((payment) => (
-                    <tr
-                      key={payment.payment_id}
-                      className="hover:bg-gray-50 transition-colors"
-                    >
-                      <td className="py-4 px-6">
-                        <div>
-                          <p className="font-medium text-gray-900">
-                            {payment.tenant_name || 'N/A'}
-                          </p>
-                          <p className="text-sm text-gray-600">
-                            {payment.unit_number || 'N/A'}
-                          </p>
-                        </div>
-                      </td>
-                      <td className="py-4 px-6 text-gray-900">
-                        {payment.property_name || 'N/A'}
-                      </td>
-                      <td className="py-4 px-6">
-                        <div>
-                          <p className="font-semibold text-gray-900">
-                            ${payment.amount_paid.toLocaleString()}
-                          </p>
-                        </div>
-                      </td>
-                      <td className="py-4 px-6 text-gray-900">
-                        {payment.payment_month}
-                      </td>
-                      <td className="py-4 px-6 text-gray-900">
-                        {payment.unit_number || 'N/A'}
-                      </td>
-                      <td className="py-4 px-6 text-gray-900">
-                        {payment.payment_category}
-                      </td>
-                      <td className="py-4 px-6 text-gray-900">
-                        {payment.due_date}
-                      </td>
-                      {isUnitPaid(payment.unit_id, payment.payment_month)
-                        ? 'Paid'
-                        : 'Unpaid'}
-                      <td className="py-4 px-6 text-gray-900">
-                        {payment.payment_method || '-'}
-                      </td>
-                      <td className="py-4 px-6">
-                        <div className="flex items-center gap-2">
-                          <button className="p-1 text-blue-600 hover:text-blue-800 transition-colors">
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSelectedPayment(payment);
-                              setShowAddEditModal(true);
-                            }}
-                            className="p-1 text-green-600 hover:text-green-800 transition-colors"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSelectedPayment(payment);
-                              setShowDeleteConfirm(true);
-                            }}
-                            className="p-1 text-red-600 hover:text-red-800 transition-colors"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
+                      <th className="text-left py-3 px-6 font-semibold text-gray-900">
+                        Due Date
+                      </th>
+                      <th className="text-left py-3 px-6 font-semibold text-gray-900">
+                        Status
+                      </th>
+                      <th className="text-left py-3 px-6 font-semibold text-gray-900">
+                        Method
+                      </th>
+                      <th className="text-left py-3 px-6 font-semibold text-gray-900">
+                        Actions
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {filteredPayments.map((payment) => (
+                      <tr
+                        key={payment.payment_id}
+                        className="hover:bg-gray-50 transition-colors"
+                      >
+                        <td className="py-4 px-6">
+                          <div>
+                            <p className="font-medium text-gray-900">
+                              {payment.tenant_name || 'N/A'}
+                            </p>
+                            <p className="text-sm text-gray-600">
+                              {payment.unit_number || 'N/A'}
+                            </p>
+                          </div>
+                        </td>
+                        <td className="py-4 px-6 text-gray-900">
+                          {payment.property_name || 'N/A'}
+                        </td>
+                        <td className="py-4 px-6">
+                          <div>
+                            <p className="font-semibold text-gray-900">
+                              ${payment.amount_paid.toLocaleString()}
+                            </p>
+                          </div>
+                        </td>
+                        <td className="py-4 px-6 text-gray-900">
+                          {payment.payment_month}
+                        </td>
+                        <td className="py-4 px-6 text-gray-900">
+                          {payment.unit_number || 'N/A'}
+                        </td>
+                        <td className="py-4 px-6 text-gray-900">
+                          {payment.payment_category}
+                        </td>
+                        <td className="py-4 px-6 text-gray-900">
+                          {payment.due_date}
+                        </td>
+                        {isUnitPaid(payment.unit_id, payment.payment_month)
+                          ? 'Paid'
+                          : 'Unpaid'}
+                        <td className="py-4 px-6 text-gray-900">
+                          {payment.payment_method || '-'}
+                        </td>
+                        <td className="py-4 px-6">
+                          <div className="flex items-center gap-2">
+                            <button className="p-1 text-blue-600 hover:text-blue-800 transition-colors">
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedPayment(payment);
+                                setShowAddEditModal(true);
+                              }}
+                              className="p-1 text-green-600 hover:text-green-800 transition-colors"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedPayment(payment);
+                                setShowDeleteConfirm(true);
+                              }}
+                              className="p-1 text-red-600 hover:text-red-800 transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
+          ) : (
+            <ArrearsReportTab
+              month={filterMonth || new Date().toISOString().slice(0, 7)}
+            />
+          )}
         </div>
       </main>
 

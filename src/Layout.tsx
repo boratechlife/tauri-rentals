@@ -22,6 +22,7 @@ const Layout = () => {
     { tab: 'expenses', to: '/expenses' },
     { tab: 'managers', to: '/managers' },
     { tab: 'blocks', to: '/blocks' },
+    { tab: 'complaints', to: '/complaints' },
   ];
 
   return (
