@@ -48,7 +48,7 @@ interface UnitType {
   security_deposit: number | null;
   tenant_id: string | null;
   notes: string | null;
-  tenantInfo: { id: string; name: string; leaseEndDate: string } | null;
+  tenantInfo: { id: string; name: string } | null;
   photos?: string[];
   amenities?: string[];
   squareFootage?: number;
@@ -165,7 +165,6 @@ const Unit = () => {
     unit.monthly_rent?.toString() || '0',
     unit.security_deposit?.toString() || '0',
     unit.tenantInfo?.name || 'None',
-    unit.tenantInfo?.leaseEndDate || 'N/A',
     unit.notes || 'None',
     unit.amenities?.join(';') || 'None',
     unit.squareFootage?.toString() || '0',
@@ -305,7 +304,6 @@ const Unit = () => {
             tenant_id: string | null;
             notes: string | null;
             tenant_name: string | null;
-            lease_end_date: string | null;
             squareFootage?: number;
             photos?: string[];
             amenities?: string[];
@@ -314,7 +312,7 @@ const Unit = () => {
           SELECT u.unit_id, u.unit_number, u.property_id, p.name AS property_name, 
                  u.block_id, u.floor_number, u.unit_status, u.unit_type, 
                  u.bedroom_count, u.bathroom_count, u.monthly_rent, u.security_deposit, 
-                 u.tenant_id, u.notes, t.full_name AS tenant_name, t.lease_end_date
+                 u.tenant_id, u.notes, t.full_name AS tenant_name 
           FROM units u
           LEFT JOIN properties p ON u.property_id = p.property_id
           LEFT JOIN tenants t ON u.tenant_id = t.tenant_id
@@ -339,7 +337,6 @@ const Unit = () => {
             ? {
                 id: unit.tenant_id,
                 name: unit.tenant_name || '',
-                leaseEndDate: unit.lease_end_date || '',
               }
             : null,
           photos: unit.photos || [],
@@ -527,7 +524,7 @@ const Unit = () => {
           tenant_id: string | null;
           notes: string | null;
           tenant_name: string | null;
-          lease_end_date: string | null;
+
           squareFootage?: number;
           photos?: string[];
           amenities?: string[];
@@ -536,7 +533,7 @@ const Unit = () => {
         SELECT u.unit_id, u.unit_number, u.property_id, p.name AS property_name, 
                u.block_id, u.floor_number, u.unit_status, u.unit_type, 
                u.bedroom_count, u.bathroom_count, u.monthly_rent, u.security_deposit, 
-               u.tenant_id, u.notes, t.full_name AS tenant_name, t.lease_end_date
+               u.tenant_id, u.notes, t.full_name AS tenant_name
         FROM units u
         LEFT JOIN properties p ON u.property_id = p.property_id
         LEFT JOIN tenants t ON u.tenant_id = t.tenant_id
@@ -560,7 +557,6 @@ const Unit = () => {
           ? {
               id: unit.tenant_id,
               name: unit.tenant_name || '',
-              leaseEndDate: unit.lease_end_date || '',
             }
           : null,
         photos: unit.photos || [],
@@ -967,8 +963,7 @@ const Unit = () => {
                   {unit.tenantInfo ? (
                     <p className="text-sm text-gray-600 flex items-center gap-2 mt-2">
                       <Users className="w-4 h-4" /> Tenant:{' '}
-                      {unit.tenantInfo.name} (Lease ends:{' '}
-                      {unit.tenantInfo.leaseEndDate})
+                      {unit.tenantInfo.name}
                     </p>
                   ) : (
                     <p className="text-sm text-gray-600 flex items-center gap-2 mt-2">
@@ -1062,9 +1057,7 @@ const Unit = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {unit.tenantInfo
-                        ? `${unit.tenantInfo.name} (ends: ${unit.tenantInfo.leaseEndDate})`
-                        : 'None'}
+                      {unit.tenantInfo ? `${unit.tenantInfo.name} ` : 'None'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end gap-2">
@@ -1549,12 +1542,6 @@ const Unit = () => {
                       <Users className="w-5 h-5 text-gray-500" /> Tenant Name:{' '}
                       <span className="font-medium">
                         {selectedUnit.tenantInfo.name}
-                      </span>
-                    </p>
-                    <p className="flex items-center gap-2 text-gray-700">
-                      <Calendar className="w-5 h-5 text-gray-500" /> Lease Ends:{' '}
-                      <span className="font-medium">
-                        {selectedUnit.tenantInfo.leaseEndDate}
                       </span>
                     </p>
                   </>

@@ -367,6 +367,15 @@ INSERT INTO managers (name, email, phone, hire_date) VALUES
             ",
             kind: MigrationKind::Up, // This is an "Up" migration to apply changes
 },
+
+     Migration {
+            version: 17, // <-- Increment this version number
+            description: "drop_lease_end_date_column",
+            sql: "
+                ALTER TABLE tenants DROP COLUMN lease_end_date; -- Remove the old column if it exists
+            ",
+            kind: MigrationKind::Up, // This is an "Up" migration to apply changes
+},
     ];
 
     tauri::Builder::default()

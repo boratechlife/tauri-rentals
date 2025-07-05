@@ -16,7 +16,7 @@ export interface Tenant {
   unit_id: number | null; // Nullable foreign key to units
   rent_amount: number;
   lease_start_date: string;
-  lease_end_date: string;
+
   unit_number?: string; // Derived from units table
   property_name?: string; // Derived from properties table
 }
@@ -42,7 +42,7 @@ const TenantsList: React.FC = () => {
       const dbTenants: any = await db.select(`
         SELECT 
           t.tenant_id, t.full_name, t.email, t.phone_number, t.status,
-          t.unit_id, t.rent_amount, t.lease_start_date, t.lease_end_date,
+          t.unit_id, t.rent_amount, t.lease_start_date, 
           u.unit_number, p.name AS property_name
         FROM tenants t
         LEFT JOIN units u ON t.unit_id = u.unit_id
@@ -88,18 +88,17 @@ const TenantsList: React.FC = () => {
     setLoading(true);
     try {
       if ('tenant_id' in tenantData && tenantData.tenant_id !== null) {
-        // Update existing tenant
+        // --- Update existing tenant ---
         await db.execute(
-          `UPDATE tenants SET full_name = $1, email = $2, phone_number = $3, status = $4, unit_id = $5, rent_amount = $6, lease_start_date = $7, lease_end_date = $8 WHERE tenant_id = $9`,
+          `UPDATE tenants SET full_name = $1, email = $2, phone_number = $3, status = $4, unit_id = $5, rent_amount = $6, lease_start_date = $7 WHERE tenant_id = $8`,
           [
             tenantData.full_name,
             tenantData.email,
             tenantData.phone_number,
             tenantData.status,
-            tenantData.unit_id || null,
+            tenantData.unit_id || null, // Ensure null is passed if unit_id is empty
             tenantData.rent_amount,
             tenantData.lease_start_date,
-            tenantData.lease_end_date,
             tenantData.tenant_id,
           ]
         );
@@ -107,31 +106,63 @@ const TenantsList: React.FC = () => {
           'Tenant updated successfully in SQLite:',
           tenantData.tenant_id
         );
+
+        // --- NEW: Update unit status if a unit_id is provided during an update ---
+        if (tenantData.unit_id) {
+          await db.execute(
+            `UPDATE units SET unit_status = 'Occupied' WHERE unit_id = $1`,
+            [tenantData.unit_id]
+          );
+          console.log(
+            `Unit ${tenantData.unit_id} status updated to 'Occupied'.`
+          );
+        } else {
+          // Optional: If tenant was previously assigned a unit and now unassigned,
+          // you might want to set the previous unit's status back to 'Available' or 'Vacant'.
+          // This requires fetching the old unit_id before the update.
+          // For simplicity, I'm omitting this unless you specifically need it.
+        }
       } else {
-        // Add new tenant
+        // --- Add new tenant ---
         await db.execute(
-          `INSERT INTO tenants (full_name, email, phone_number, status, unit_id, rent_amount, lease_start_date, lease_end_date) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          `INSERT INTO tenants (full_name, email, phone_number, status, unit_id, rent_amount, lease_start_date) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
           [
             tenantData.full_name,
             tenantData.email,
             tenantData.phone_number,
             tenantData.status,
-            tenantData.unit_id || null,
+            tenantData.unit_id || null, // Ensure null is passed if unit_id is empty
             tenantData.rent_amount,
             tenantData.lease_start_date,
-            tenantData.lease_end_date,
           ]
         );
         console.log('New tenant added successfully to SQLite.');
+
+        // --- NEW: Update unit status if a unit_id is provided during an insert ---
+        if (tenantData.unit_id) {
+          await db.execute(
+            `UPDATE units SET unit_status = 'Occupied' WHERE unit_id = $1`,
+            [tenantData.unit_id]
+          );
+          console.log(
+            `Unit ${tenantData.unit_id} status updated to 'Occupied'.`
+          );
+        }
       }
-      fetchTenants();
+
+      fetchTenants(); // Re-fetch tenants to update UI
+      // You might also want to re-fetch units if your UI displays unit statuses directly
+      // fetchUnits(); // Assuming you have a similar fetchUnits function
+
       setShowAddEditTenantModal(false);
       setSelectedTenant(null);
     } catch (err) {
       console.error('Error saving tenant to SQLite:', err);
-      setError('Failed to save tenant.');
+      // More robust error handling: check if the error is due to a non-existent unit_id
+      setError('Failed to save tenant. Please ensure the unit ID is valid.');
     } finally {
       setLoading(false);
+      //   if (db) await db.close(); // Ensure the database connection is closed
     }
   };
 
@@ -247,10 +278,6 @@ const TenantsList: React.FC = () => {
                   <p>
                     <span className="font-medium text-gray-800">Rent:</span> $
                     {tenant.rent_amount.toLocaleString()}/month
-                  </p>
-                  <p>
-                    <span className="font-medium text-gray-800">Lease:</span>{' '}
-                    {tenant.lease_start_date} to {tenant.lease_end_date}
                   </p>
                 </div>
               </div>

@@ -39,7 +39,6 @@ export interface Tenant {
   email: string;
   id_number: string;
   lease_start_date: string;
-  lease_end_date: string;
   rent_amount: number;
   deposit_amount: number;
   unit_id: number | null; // Nullable foreign key to units
@@ -126,19 +125,13 @@ const PropertyManagementDashboard: React.FC = () => {
     try {
       const db = await Database.load('sqlite:test6.db');
       const tenantsData = await db.select(`
-      SELECT t.tenant_id, t.full_name, t.rent_amount, t.lease_start_date, t.lease_end_date, u.unit_number
+      SELECT t.tenant_id, t.full_name, t.rent_amount, t.lease_start_date, u.unit_number
       FROM tenants t
       LEFT JOIN units u ON t.unit_id = u.unit_id
       WHERE t.status = 'active'
     `);
       const arrearsReport: ArrearsReport[] = [];
       for (const tenant of tenantsData as Tenant[]) {
-        const leaseStart = new Date(tenant.lease_start_date);
-        const leaseEnd = new Date(tenant.lease_end_date);
-        const selectedMonth = new Date(month + '-01');
-        const isWithinLease =
-          selectedMonth >= leaseStart && selectedMonth <= leaseEnd;
-        if (!isWithinLease) continue;
         const paymentsForMonth: any = await db.select(
           `
   SELECT SUM(amount_paid) as total_paid
@@ -230,13 +223,13 @@ const PropertyManagementDashboard: React.FC = () => {
                 <td className="py-4 px-6">{report.tenant_name}</td>
                 <td className="py-4 px-6">{report.unit_number}</td>
                 <td className="py-4 px-6">
-                  ${report.expected_amount.toLocaleString()}
+                  KES.{report.expected_amount.toLocaleString()}
                 </td>
                 <td className="py-4 px-6">
-                  ${report.total_paid.toLocaleString()}
+                  KES.{report.total_paid.toLocaleString()}
                 </td>
                 <td className="py-4 px-6">
-                  ${Math.abs(report.balance).toLocaleString()}
+                  KES.{Math.abs(report.balance).toLocaleString()}
                 </td>
                 <td className="py-4 px-6">
                   <span
@@ -744,7 +737,7 @@ const PropertyManagementDashboard: React.FC = () => {
                         <td className="py-4 px-6">
                           <div>
                             <p className="font-semibold text-gray-900">
-                              ${payment.amount_paid.toLocaleString()}
+                              KES.{payment.amount_paid.toLocaleString()}
                             </p>
                           </div>
                         </td>

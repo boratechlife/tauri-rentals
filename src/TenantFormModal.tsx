@@ -16,7 +16,6 @@ const initialTenantFormState: Omit<Tenant, 'tenant_id'> = {
   unit_id: null, // Nullable foreign key to units
   rent_amount: 0,
   lease_start_date: '',
-  lease_end_date: '',
   unit_number: undefined, // Derived, not editable
   property_name: undefined, // Derived, not editable
 };
@@ -70,7 +69,9 @@ export const TenantFormModal: React.FC<TenantFormModalProps> = ({
             property_id: number;
             monthly_rent: number;
           }[]
-        >(`SELECT unit_id, unit_number, property_id, monthly_rent FROM units`);
+        >(
+          `SELECT unit_id, unit_number, property_id, monthly_rent, unit_status FROM units where unit_status  not in ('Inactive', 'Moving Out','Occupied')`
+        );
         setUnits(dbUnits);
         setUnits(
           dbUnits as {
@@ -274,23 +275,7 @@ export const TenantFormModal: React.FC<TenantFormModalProps> = ({
               required
             />
           </div>
-          <div>
-            <label
-              htmlFor="lease_end_date"
-              className="block text-sm font-medium text-gray-700"
-            >
-              Lease End Date
-            </label>
-            <input
-              type="date"
-              id="lease_end_date"
-              name="lease_end_date"
-              value={formData.lease_end_date || ''}
-              onChange={handleChange}
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              required
-            />
-          </div>
+
           <div>
             <label
               htmlFor="status"
