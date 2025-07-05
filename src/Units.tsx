@@ -113,6 +113,7 @@ const Unit = () => {
   const [isAddUnitModalOpen, setIsAddUnitModalOpen] = useState(false);
   const [isViewUnitModalOpen, setIsViewUnitModalOpen] = useState(false);
   const [selectedUnit, setSelectedUnit] = useState<UnitType | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   // State for new unit form data
   const [newUnitData, setNewUnitData] = useState<{
@@ -146,6 +147,95 @@ const Unit = () => {
   // Available properties and unit types for filters
   const availableProperties = [...new Set(properties.map((p) => p.name))];
   const availableUnitTypes = [...new Set(units.map((u) => u.unit_type))].sort();
+  const unitToCsvRow = (unit: UnitType): string[] => [
+    unit.unit_id.toString(),
+    unit.unit_number,
+    unit.property_name,
+    unit.block_id || 'N/A',
+    unit.floor_number?.toString() || 'N/A',
+    unit.unit_status,
+    unit.unit_type,
+    unit.bedroom_count?.toString() || '0',
+    unit.bathroom_count?.toString() || '0',
+    unit.monthly_rent?.toString() || '0',
+    unit.security_deposit?.toString() || '0',
+    unit.tenantInfo?.name || 'None',
+    unit.tenantInfo?.leaseEndDate || 'N/A',
+    unit.notes || 'None',
+    unit.amenities?.join(';') || 'None',
+    unit.squareFootage?.toString() || '0',
+  ];
+  const csvHeaders = [
+    'Unit ID',
+    'Unit Number',
+    'Property Name',
+    'Block ID',
+    'Floor Number',
+    'Status',
+    'Unit Type',
+    'Bedrooms',
+    'Bathrooms',
+    'Monthly Rent',
+    'Security Deposit',
+    'Tenant Name',
+    'Lease End Date',
+    'Notes',
+    'Amenities',
+    'Square Footage',
+  ];
+
+  const escapeCsvValue = (value: string): string => {
+    if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+      return `"${value.replace(/"/g, '""')}"`;
+    }
+    return value;
+  };
+
+  const generateCsvContent = (units: UnitType[]): string => {
+    const rows = [
+      csvHeaders.map(escapeCsvValue).join(','),
+      ...units.map((unit) => unitToCsvRow(unit).map(escapeCsvValue).join(',')),
+    ];
+    return rows.join('\n');
+  };
+
+  const generateCsvFilename = (): string => {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    return `units_export_${timestamp}.csv`;
+  };
+
+  const downloadCsv = (content: string, filename: string) => {
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportCsv = () => {
+    setIsExporting(true);
+    try {
+      if (filteredUnits.length > 1000) {
+        setError(
+          'Too many units to export. Please filter to 1000 or fewer units.'
+        );
+        return;
+      }
+      const csvContent = generateCsvContent(filteredUnits);
+      const filename = generateCsvFilename();
+      downloadCsv(csvContent, filename);
+      setError('');
+    } catch (err) {
+      console.error('Error exporting CSV:', err);
+      setError('Failed to export units to CSV.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   useEffect(() => {
     let db: Database | null = null;
@@ -756,6 +846,22 @@ const Unit = () => {
             className={`${primaryButtonClass} flex items-center gap-2`}
           >
             <Plus size={20} /> Add New Unit
+          </button>
+          <button
+            onClick={handleExportCsv}
+            disabled={isExporting || filteredUnits.length === 0}
+            className={`${primaryButtonClass} flex items-center gap-2 ${
+              isExporting || filteredUnits.length === 0
+                ? 'opacity-50 cursor-not-allowed'
+                : ''
+            }`}
+          >
+            {isExporting ? (
+              <span className="animate-spin">⏳</span>
+            ) : (
+              <Plus size={20} />
+            )}
+            Export to CSV
           </button>
         </div>
       </section>

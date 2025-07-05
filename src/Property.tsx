@@ -734,7 +734,8 @@ const PropertiesPage = () => {
                   htmlFor="manager_id"
                   className="block text-sm font-medium text-gray-700 mb-1"
                 >
-                  Property Manager <span className="text-red-500">*</span>
+                  Property Manager(caretaker){' '}
+                  <span className="text-red-500">*</span>
                 </label>
                 <select
                   id="manager_id"

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Complaint } from './ComplaintsPage';
 
 interface ComplaintFormModalProps {
@@ -26,6 +26,18 @@ const ComplaintFormModal: React.FC<ComplaintFormModalProps> = ({
     description: initialData?.description || '',
     status: initialData?.status || 'Open',
   });
+
+  // Sync formData with initialData when initialData or isOpen changes
+  useEffect(() => {
+    if (isOpen && initialData) {
+      setFormData({
+        unit_id: initialData.unit_id || 0,
+        tenant_id: initialData.tenant_id || null,
+        description: initialData.description || '',
+        status: initialData.status || 'Open',
+      });
+    }
+  }, [initialData, isOpen]);
 
   const handleSubmit = () => {
     onSave(formData);

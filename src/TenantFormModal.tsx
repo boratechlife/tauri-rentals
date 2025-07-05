@@ -3,6 +3,10 @@ import { useState, useEffect } from 'react';
 import { Tenant } from './Tenants';
 import Database from '@tauri-apps/plugin-sql';
 
+interface Property {
+  property_id: number;
+  name: string;
+}
 // Initial form state for adding/editing tenants
 const initialTenantFormState: Omit<Tenant, 'tenant_id'> = {
   full_name: '',
@@ -37,8 +41,18 @@ export const TenantFormModal: React.FC<TenantFormModalProps> = ({
     initialTenantFormState
   );
   const [units, setUnits] = useState<
-    { unit_id: number; unit_number: string }[]
+    {
+      unit_id: number;
+      unit_number: string;
+      property_id: number;
+      monthly_rent: number;
+    }[]
   >([]);
+
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [selectedPropertyId, setSelectedPropertyId] = useState<number | null>(
+    null
+  );
 
   useEffect(() => {
     setFormData(initialData || initialTenantFormState);
@@ -49,11 +63,28 @@ export const TenantFormModal: React.FC<TenantFormModalProps> = ({
     async function fetchUnits() {
       try {
         const db = await Database.load('sqlite:test6.db');
-        const dbUnits = await db.select(`
-          SELECT unit_id, unit_number 
-          FROM units
-        `);
-        setUnits(dbUnits as { unit_id: number; unit_number: string }[]);
+        const dbUnits = await db.select<
+          {
+            unit_id: number;
+            unit_number: string;
+            property_id: number;
+            monthly_rent: number;
+          }[]
+        >(`SELECT unit_id, unit_number, property_id, monthly_rent FROM units`);
+        setUnits(dbUnits);
+        setUnits(
+          dbUnits as {
+            unit_id: number;
+            unit_number: string;
+            property_id: number;
+            monthly_rent: number;
+          }[]
+        );
+
+        const dbProperties = await db.select<Property[]>(
+          `SELECT property_id, name FROM properties`
+        );
+        setProperties(dbProperties);
       } catch (err) {
         console.error('Error fetching units:', err);
       }
@@ -80,6 +111,10 @@ export const TenantFormModal: React.FC<TenantFormModalProps> = ({
     e.preventDefault();
     onSave(formData);
   };
+
+  const filteredUnits = selectedPropertyId
+    ? units.filter((unit) => unit.property_id === selectedPropertyId)
+    : [];
 
   if (!isOpen) return null;
 
@@ -150,6 +185,34 @@ export const TenantFormModal: React.FC<TenantFormModalProps> = ({
           </div>
           <div>
             <label
+              htmlFor="property_id"
+              className="block text-sm font-medium text-gray-700"
+            >
+              Property
+            </label>
+            <select
+              id="property_id"
+              name="property_id"
+              value={selectedPropertyId || ''}
+              onChange={(e) =>
+                setSelectedPropertyId(
+                  e.target.value ? Number(e.target.value) : null
+                )
+              }
+              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              required
+            >
+              <option value="">Select Property</option>
+              {properties.map((property) => (
+                <option key={property.property_id} value={property.property_id}>
+                  {property.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label
               htmlFor="unit_id"
               className="block text-sm font-medium text-gray-700"
             >
@@ -162,11 +225,12 @@ export const TenantFormModal: React.FC<TenantFormModalProps> = ({
               onChange={handleChange}
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               required
+              disabled={!selectedPropertyId}
             >
               <option value="">Select Unit</option>
-              {units.map((unit) => (
+              {filteredUnits.map((unit) => (
                 <option key={unit.unit_id} value={unit.unit_id}>
-                  {unit.unit_number}
+                  {unit.unit_number} (Kshs.{unit.monthly_rent})
                 </option>
               ))}
             </select>
@@ -176,15 +240,19 @@ export const TenantFormModal: React.FC<TenantFormModalProps> = ({
               htmlFor="rent_amount"
               className="block text-sm font-medium text-gray-700"
             >
-              Rent Amount ($)
+              Rent Amount (Kshs.)
             </label>
             <input
               type="number"
               id="rent_amount"
               name="rent_amount"
-              value={formData.rent_amount || 0}
+              value={
+                units.find((unit) => unit.unit_id === formData.unit_id)
+                  ?.monthly_rent
+              }
               onChange={handleChange}
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              disabled
               required
               min="0"
             />
