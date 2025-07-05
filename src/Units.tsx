@@ -387,6 +387,20 @@ const Unit = () => {
     if (!data.unit_number.trim()) {
       errors.unit_number = 'Unit number is required';
     }
+
+    // check  property_id and unit_number combination if exist
+    if (data.unit_number.trim() && data.property_id) {
+      const existingUnit = units.find(
+        (unit) =>
+          unit.unit_number === data.unit_number &&
+          unit.property_id.toString() === data.property_id
+      );
+      if (existingUnit && existingUnit.unit_id !== editingUnitId) {
+        errors.unit_number =
+          'This unit number already exists for this property';
+      }
+    }
+
     if (!data.property_id) {
       errors.property_id = 'Property is required';
     }
@@ -947,7 +961,7 @@ const Unit = () => {
                     <Ruler className="w-4 h-4" /> {unit.squareFootage || 0} sqft
                   </p>
                   <p className="text-sm text-gray-600 flex items-center gap-2 mt-2">
-                    <DollarSign className="w-4 h-4" /> Rent: $
+                    <DollarSign className="w-4 h-4" /> Rent: KES.
                     {unit.monthly_rent || 0}/month
                   </p>
                   {unit.tenantInfo ? (
@@ -1168,55 +1182,7 @@ const Unit = () => {
                     </p>
                   )}
                 </div>
-                <div>
-                  <label
-                    htmlFor="block_id"
-                    className="block text-sm font-medium text-gray-700 mb-1"
-                  >
-                    Block (optional)
-                  </label>
-                  <input
-                    type="text"
-                    id="block_id"
-                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                    value={newUnitData.block_id}
-                    onChange={(e) =>
-                      setNewUnitData({
-                        ...newUnitData,
-                        block_id: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="floor_number"
-                    className="block text-sm font-medium text-gray-700 mb-1"
-                  >
-                    Floor
-                  </label>
-                  <input
-                    type="number"
-                    id="floor_number"
-                    className={`w-full p-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 ${
-                      formErrors.floor_number
-                        ? 'border-red-500'
-                        : 'border-gray-300'
-                    }`}
-                    value={newUnitData.floor_number}
-                    onChange={(e) =>
-                      setNewUnitData({
-                        ...newUnitData,
-                        floor_number: e.target.value,
-                      })
-                    }
-                  />
-                  {formErrors.floor_number && (
-                    <p className="mt-1 text-sm text-red-600">
-                      {formErrors.floor_number}
-                    </p>
-                  )}
-                </div>
+
                 <div>
                   <label
                     htmlFor="unit_status"
@@ -1292,66 +1258,6 @@ const Unit = () => {
                 </div>
                 <div>
                   <label
-                    htmlFor="bedroom_count"
-                    className="block text-sm font-medium text-gray-700 mb-1"
-                  >
-                    Bedrooms
-                  </label>
-                  <input
-                    type="number"
-                    id="bedroom_count"
-                    className={`w-full p-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 ${
-                      formErrors.bedroom_count
-                        ? 'border-red-500'
-                        : 'border-gray-300'
-                    }`}
-                    value={newUnitData.bedroom_count}
-                    onChange={(e) =>
-                      setNewUnitData({
-                        ...newUnitData,
-                        bedroom_count: e.target.value,
-                      })
-                    }
-                    required
-                  />
-                  {formErrors.bedroom_count && (
-                    <p className="mt-1 text-sm text-red-600">
-                      {formErrors.bedroom_count}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <label
-                    htmlFor="bathroom_count"
-                    className="block text-sm font-medium text-gray-700 mb-1"
-                  >
-                    Bathrooms
-                  </label>
-                  <input
-                    type="number"
-                    id="bathroom_count"
-                    className={`w-full p-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 ${
-                      formErrors.bathroom_count
-                        ? 'border-red-500'
-                        : 'border-gray-300'
-                    }`}
-                    value={newUnitData.bathroom_count}
-                    onChange={(e) =>
-                      setNewUnitData({
-                        ...newUnitData,
-                        bathroom_count: e.target.value,
-                      })
-                    }
-                    required
-                  />
-                  {formErrors.bathroom_count && (
-                    <p className="mt-1 text-sm text-red-600">
-                      {formErrors.bathroom_count}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <label
                     htmlFor="monthly_rent"
                     className="block text-sm font-medium text-gray-700 mb-1"
                   >
@@ -1385,7 +1291,7 @@ const Unit = () => {
                     htmlFor="security_deposit"
                     className="block text-sm font-medium text-gray-700 mb-1"
                   >
-                    Security Deposit
+                    Security Deposit<span className="text-red-500">*</span>
                   </label>
                   <input
                     type="number"
@@ -1402,6 +1308,7 @@ const Unit = () => {
                         security_deposit: e.target.value,
                       })
                     }
+                    required
                   />
                   {formErrors.security_deposit && (
                     <p className="mt-1 text-sm text-red-600">
@@ -1409,7 +1316,114 @@ const Unit = () => {
                     </p>
                   )}
                 </div>
+                <div>
+                  <label
+                    htmlFor="bedroom_count"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    Bedrooms(optional)
+                  </label>
+                  <input
+                    type="number"
+                    id="bedroom_count"
+                    className={`w-full p-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 ${
+                      formErrors.bedroom_count
+                        ? 'border-red-500'
+                        : 'border-gray-300'
+                    }`}
+                    value={newUnitData.bedroom_count}
+                    onChange={(e) =>
+                      setNewUnitData({
+                        ...newUnitData,
+                        bedroom_count: e.target.value,
+                      })
+                    }
+                  />
+                  {formErrors.bedroom_count && (
+                    <p className="mt-1 text-sm text-red-600">
+                      {formErrors.bedroom_count}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label
+                    htmlFor="bathroom_count"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    Bathrooms(optional)
+                  </label>
+                  <input
+                    type="number"
+                    id="bathroom_count"
+                    className={`w-full p-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 ${
+                      formErrors.bathroom_count
+                        ? 'border-red-500'
+                        : 'border-gray-300'
+                    }`}
+                    value={newUnitData.bathroom_count}
+                    onChange={(e) =>
+                      setNewUnitData({
+                        ...newUnitData,
+                        bathroom_count: e.target.value,
+                      })
+                    }
+                  />
+                  {formErrors.bathroom_count && (
+                    <p className="mt-1 text-sm text-red-600">
+                      {formErrors.bathroom_count}
+                    </p>
+                  )}
+                </div>
 
+                <div>
+                  <label
+                    htmlFor="block_id"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    Block (optional)
+                  </label>
+                  <input
+                    type="text"
+                    id="block_id"
+                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    value={newUnitData.block_id}
+                    onChange={(e) =>
+                      setNewUnitData({
+                        ...newUnitData,
+                        block_id: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="floor_number"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    Floor(Optional)
+                  </label>
+                  <input
+                    type="number"
+                    id="floor_number"
+                    className={`w-full p-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 ${
+                      formErrors.floor_number
+                        ? 'border-red-500'
+                        : 'border-gray-300'
+                    }`}
+                    value={newUnitData.floor_number}
+                    onChange={(e) =>
+                      setNewUnitData({
+                        ...newUnitData,
+                        floor_number: e.target.value,
+                      })
+                    }
+                  />
+                  {formErrors.floor_number && (
+                    <p className="mt-1 text-sm text-red-600">
+                      {formErrors.floor_number}
+                    </p>
+                  )}
+                </div>
                 <div className="md:col-span-2">
                   <label
                     htmlFor="notes"

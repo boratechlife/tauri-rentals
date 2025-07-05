@@ -349,6 +349,24 @@ INSERT INTO managers (name, email, phone, hire_date) VALUES
             ",
             kind: MigrationKind::Up, // This is an "Up" migration to apply changes
 },
+
+     Migration {
+            version: 16, // <-- Increment this version number
+            description: "create_complaints_table",
+            sql: "
+                -- V2__alter_units_columns.sql
+                ALTER TABLE units RENAME COLUMN bedroom_count TO old_bedroom_count;
+                ALTER TABLE units ADD COLUMN bedroom_count REAL; -- Or whatever new type/constraints you need
+                UPDATE units SET bedroom_count = old_bedroom_count;
+                ALTER TABLE units DROP COLUMN old_bedroom_count;
+
+                ALTER TABLE units RENAME COLUMN bathroom_count TO old_bathroom_count;
+                ALTER TABLE units ADD COLUMN bathroom_count REAL; -- Or whatever new type/constraints you need
+                UPDATE units SET bathroom_count = old_bathroom_count;
+                ALTER TABLE units DROP COLUMN old_bathroom_count;
+            ",
+            kind: MigrationKind::Up, // This is an "Up" migration to apply changes
+},
     ];
 
     tauri::Builder::default()
