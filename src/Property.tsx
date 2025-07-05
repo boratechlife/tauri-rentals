@@ -681,6 +681,7 @@ const PropertiesPage = () => {
                   required
                 >
                   <option value="">Select Property Type</option>
+                  <option value="Mixed">Mixed</option>
                   <option value="Single">Single</option>
                   <option value="1bedroom">1 Bedroom</option>
                   <option value="2bedroom">2 Bedroom</option>

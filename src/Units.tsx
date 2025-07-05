@@ -98,7 +98,12 @@ const Unit = () => {
 
   const [units, setUnits] = useState<UnitType[]>([]);
   const [properties, setProperties] = useState<
-    { property_id: number; name: string }[]
+    {
+      property_id: number;
+      name: string;
+      total_units: number;
+      created_units: any;
+    }[]
   >([]);
   const [filteredUnits, setFilteredUnits] = useState<UnitType[]>([]);
   const [loading, setLoading] = useState(false);
@@ -244,9 +249,27 @@ const Unit = () => {
         setLoading(true);
         db = await Database.load('sqlite:test6.db');
         const dbProperties: any = await db.select(
-          `SELECT property_id, name FROM properties`
+          `SELECT property_id, name,total_units FROM properties`
         );
-        setProperties(dbProperties);
+        const createdUnitsCountPerPropery: any = await db.select(
+          `SELECT property_id, COUNT(*) as created_units FROM units GROUP BY property_id`
+        );
+        const formattedProperties: any = dbProperties
+          .map((property: any) => {
+            const createdUnits = createdUnitsCountPerPropery.find(
+              (unit: any) => unit.property_id === property.property_id
+            );
+            return {
+              ...property,
+              created_units: createdUnits ? createdUnits.created_units : 0,
+            };
+          })
+          .filter(
+            (item: { created_units: number; total_units: number }) =>
+              item.created_units < item.total_units
+          );
+
+        setProperties(formattedProperties);
       } catch (err) {
         console.error('Error fetching properties:', err);
         setError('Failed to load properties.');
@@ -1134,7 +1157,8 @@ const Unit = () => {
                     <option value="">Select Property</option>
                     {properties.map((prop) => (
                       <option key={prop.property_id} value={prop.property_id}>
-                        {prop.name}
+                        {prop.name} (total_units: {prop.total_units}{' '}
+                        {`Created units: ${prop.created_units} `})
                       </option>
                     ))}
                   </select>
