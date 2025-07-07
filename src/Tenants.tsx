@@ -38,7 +38,7 @@ const TenantsList: React.FC = () => {
   async function fetchTenants() {
     try {
       setLoading(true);
-      const db = await Database.load('sqlite:test6.db');
+      const db = await Database.load('sqlite:productionv1.db');
       const dbTenants: any = await db.select(`
         SELECT 
           t.tenant_id, t.full_name, t.email, t.phone_number, t.status,
@@ -60,7 +60,7 @@ const TenantsList: React.FC = () => {
 
   const handleDeleteTenant = async () => {
     if (!selectedTenant) return;
-    const db = await Database.load('sqlite:test6.db');
+    const db = await Database.load('sqlite:productionv1.db');
     setLoading(true);
     try {
       await db.execute(`DELETE FROM tenants WHERE tenant_id = $1`, [
@@ -84,7 +84,7 @@ const TenantsList: React.FC = () => {
   const handleSaveTenant = async (
     tenantData: Omit<Tenant, 'tenant_id'> | Tenant
   ) => {
-    const db = await Database.load('sqlite:test6.db');
+    const db = await Database.load('sqlite:productionv1.db');
     setLoading(true);
     try {
       if ('tenant_id' in tenantData && tenantData.tenant_id !== null) {

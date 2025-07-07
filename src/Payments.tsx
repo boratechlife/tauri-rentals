@@ -88,12 +88,11 @@ const PropertyManagementDashboard: React.FC = () => {
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [showReportModal, setShowReportModal] = useState(false);
   const [loadingReport, setLoadingReport] = useState(false);
-  const [filterMethod, setFilterMethod] = useState('all');
 
   async function fetchPayments() {
     try {
       setLoading(true);
-      const db = await Database.load('sqlite:test6.db');
+      const db = await Database.load('sqlite:productionv1.db');
       const dbPayments = await db.select(`
   SELECT 
     p.payment_id, p.tenant_id, p.unit_id, p.property_id, p.amount_paid,
@@ -123,7 +122,7 @@ const PropertyManagementDashboard: React.FC = () => {
     month: string
   ): Promise<ArrearsReport[]> {
     try {
-      const db = await Database.load('sqlite:test6.db');
+      const db = await Database.load('sqlite:productionv1.db');
       const tenantsData = await db.select(`
       SELECT t.tenant_id, t.full_name, t.rent_amount, t.lease_start_date, u.unit_number
       FROM tenants t
@@ -276,7 +275,7 @@ const PropertyManagementDashboard: React.FC = () => {
   };
   async function generateMonthlyReport(month: string) {
     try {
-      const db = await Database.load('sqlite:test6.db');
+      const db = await Database.load('sqlite:productionv1.db');
       const reportData = await db.select(
         `
       SELECT 
@@ -304,7 +303,7 @@ const PropertyManagementDashboard: React.FC = () => {
       return;
     }
     setLoading(true);
-    const db = await Database.load('sqlite:test6.db');
+    const db = await Database.load('sqlite:productionv1.db');
     try {
       await db.execute(`DELETE FROM payments WHERE payment_id = $1`, [
         selectedPayment.payment_id,
@@ -324,7 +323,7 @@ const PropertyManagementDashboard: React.FC = () => {
   const handleSavePayment = async (
     paymentData: Omit<Payment, 'payment_id'> | Payment
   ) => {
-    const db = await Database.load('sqlite:test6.db');
+    const db = await Database.load('sqlite:productionv1.db');
     setLoading(true);
     const paymentMonth = paymentData.due_date.slice(0, 7);
     const status =
@@ -444,8 +443,8 @@ const PropertyManagementDashboard: React.FC = () => {
           payment.payment_category.toLowerCase() ===
             filterCategory.toLowerCase();
         const matchesMethod =
-          filterMethod === 'all' ||
-          payment.payment_method.toLowerCase() === filterMethod.toLowerCase();
+          filterStatus === 'all' ||
+          payment.payment_method.toLowerCase() === filterStatus.toLowerCase();
         return (
           matchesSearch &&
           matchesStatus &&
@@ -455,14 +454,7 @@ const PropertyManagementDashboard: React.FC = () => {
         );
       })
       .sort((a, b) => a.payment_month.localeCompare(b.payment_month));
-  }, [
-    payments,
-    searchText,
-    filterStatus,
-    filterMonth,
-    filterCategory,
-    filterMethod,
-  ]);
+  }, [payments, searchText, filterStatus, filterMonth, filterCategory]);
 
   if (loading) {
     return (
@@ -518,7 +510,7 @@ const PropertyManagementDashboard: React.FC = () => {
                   <tr key={p.payment_id}>
                     <td className="py-2 px-4">{p.tenant_name}</td>
                     <td className="py-2 px-4">{p.unit_number}</td>
-                    <td className="py-2 px-4">${p.amount_paid}</td>
+                    <td className="py-2 px-4">KES.{p.amount_paid}</td>
                     <td className="py-2 px-4">{p.payment_status}</td>
                     <td className="py-2 px-4">{p.payment_category}</td>
                   </tr>

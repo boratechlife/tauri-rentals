@@ -70,7 +70,7 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
   useEffect(() => {
     async function fetchData() {
       try {
-        const db = await Database.load('sqlite:test6.db');
+        const db = await Database.load('sqlite:productionv1.db');
         const dbTenants = await db.select(`
           SELECT tenant_id, full_name FROM tenants
         `);

@@ -88,7 +88,7 @@ const ExpensePage: React.FC = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const db = await Database.load('sqlite:test6.db');
+      const db = await Database.load('sqlite:productionv1.db');
 
       // Use a safer query that handles missing block_id by making it optional
       const dbExpenses: any = await db.select(
@@ -142,7 +142,7 @@ const ExpensePage: React.FC = () => {
 
   const handleEditExpenseSubmit = async (editedExpenseData: Expense) => {
     try {
-      const db = await Database.load('sqlite:test6.db');
+      const db = await Database.load('sqlite:productionv1.db');
       const result = await db.execute(
         `UPDATE expenses
          SET amount = $1, category = $2, description = $3, expense_date = $4, unit_id = $5, block_id = $6, property_id = $7,
@@ -193,7 +193,7 @@ const ExpensePage: React.FC = () => {
     if (!window.confirm('Are you sure you want to delete this expense?'))
       return;
     try {
-      const db = await Database.load('sqlite:test6.db');
+      const db = await Database.load('sqlite:productionv1.db');
       const result = await db.execute(
         `DELETE FROM expenses WHERE expense_id = $1`,
         [expense_id]
@@ -210,7 +210,7 @@ const ExpensePage: React.FC = () => {
 
   const handleAddExpenseSubmit = async (newExpenseData: NewExpense) => {
     try {
-      const db = await Database.load('sqlite:test6.db');
+      const db = await Database.load('sqlite:productionv1.db');
       const result = await db.execute(
         `INSERT INTO expenses (expense_id, amount, category, description, expense_date, unit_id, block_id, property_id,
           payment_method, vendor, invoice_number, paid_by, created_at)
@@ -365,7 +365,7 @@ const ExpensePage: React.FC = () => {
                   Total Expenses
                 </p>
                 <p className="text-2xl font-bold text-gray-900">
-                  ${summaryStats.totalExpenses.toLocaleString()}
+                  KES.{summaryStats.totalExpenses.toLocaleString()}
                 </p>
               </div>
               <div className="bg-blue-100 p-3 rounded-lg">
@@ -378,7 +378,7 @@ const ExpensePage: React.FC = () => {
               <div>
                 <p className="text-sm font-medium text-gray-600">This Month</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  ${summaryStats.thisMonthTotal.toLocaleString()}
+                  KES.{summaryStats.thisMonthTotal.toLocaleString()}
                 </p>
                 <div className="flex items-center mt-2">
                   {summaryStats.percentageChange >= 0 ? (
@@ -424,7 +424,7 @@ const ExpensePage: React.FC = () => {
                   Avg per Unit
                 </p>
                 <p className="text-2xl font-bold text-gray-900">
-                  ${(summaryStats.totalExpenses / 10).toLocaleString()}
+                  KES.{(summaryStats.totalExpenses / 10).toLocaleString()}
                 </p>
               </div>
               <div className="bg-orange-100 p-3 rounded-lg">
@@ -453,7 +453,7 @@ const ExpensePage: React.FC = () => {
                       {category}
                     </p>
                     <p className="text-lg font-bold text-blue-600">
-                      ${amount.toLocaleString()}
+                      KES.{amount.toLocaleString()}
                     </p>
                   </div>
                 );
@@ -581,7 +581,7 @@ const ExpensePage: React.FC = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        ${expense.amount.toLocaleString()}
+                        KES.{expense.amount.toLocaleString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {expense.payment_method}

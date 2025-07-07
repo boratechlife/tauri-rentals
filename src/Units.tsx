@@ -26,7 +26,6 @@ import {
   CheckCircle,
   CircleDot,
   Wrench,
-  Calendar,
   Ruler,
   Users,
   Dog,
@@ -246,7 +245,7 @@ const Unit = () => {
     async function fetchProperties() {
       try {
         setLoading(true);
-        db = await Database.load('sqlite:test6.db');
+        db = await Database.load('sqlite:productionv1.db');
         const dbProperties: any = await db.select(
           `SELECT property_id, name,total_units FROM properties`
         );
@@ -284,7 +283,7 @@ const Unit = () => {
       try {
         setLoading(true);
         if (!db) {
-          db = await Database.load('sqlite:test6.db');
+          db = await Database.load('sqlite:productionv1.db');
         }
 
         const dbUnits = await db.select<
@@ -436,7 +435,7 @@ const Unit = () => {
   const handleSaveUnit = async (unitData: any) => {
     let db;
     try {
-      db = await Database.load('sqlite:test6.db');
+      db = await Database.load('sqlite:productionv1.db');
       setLoading(true);
 
       const propertyCheck = await db.select<{ property_id: number }[]>(
@@ -675,7 +674,7 @@ const Unit = () => {
     if (window.confirm(`Are you sure you want to delete unit ${unitId}?`)) {
       try {
         setLoading(true);
-        const db = await Database.load('sqlite:test6.db');
+        const db = await Database.load('sqlite:productionv1.db');
         await db.execute(`DELETE FROM units WHERE unit_id = $1`, [unitId]);
         setUnits(units.filter((unit) => unit.unit_id !== unitId));
         setError('');
@@ -1521,13 +1520,13 @@ const Unit = () => {
                 <p className="flex items-center gap-2 text-gray-700 mb-2">
                   <DollarSign className="w-5 h-5 text-gray-500" /> Monthly Rent:{' '}
                   <span className="font-medium">
-                    ${selectedUnit.monthly_rent || 0}
+                    KES.{selectedUnit.monthly_rent || 0}
                   </span>
                 </p>
                 <p className="flex items-center gap-2 text-gray-700">
                   <Key className="w-5 h-5 text-gray-500" /> Security Deposit:{' '}
                   <span className="font-medium">
-                    ${selectedUnit.security_deposit || 0}
+                    KES.{selectedUnit.security_deposit || 0}
                   </span>
                 </p>
               </div>

@@ -304,10 +304,7 @@ pub fn run() {
     sql: "
         -- Seed data for the managers table
 -- Seed data for the managers table
-INSERT INTO managers (name, email, phone, hire_date) VALUES
-('Alice Johnson', 'alice.j@example.com', '111-222-3333', '2023-01-15'),
-('Bob Smith', 'bob.s@example.com', '444-555-6666', '2022-07-01'),
-('Carol White', 'carol.w@example.com', '777-888-9999', '2024-03-20');
+
     ",
     kind: MigrationKind::Up, // This is an "Up" migration to apply changes
 },
@@ -376,13 +373,12 @@ INSERT INTO managers (name, email, phone, hire_date) VALUES
             ",
             kind: MigrationKind::Up, // This is an "Up" migration to apply changes
 },
-    ];
-
+];
     tauri::Builder::default()
         .plugin(tauri_plugin_sql::Builder::new().build())
         .plugin(
             SqlBuilder::default() // Use our aliased Builder
-                .add_migrations("sqlite:test6.db", migrations) // 'test4.db' is our database file
+                .add_migrations("sqlite:productionv1.db", migrations) // 'test4.db' is our database file
                 .build(),
         )
         .plugin(tauri_plugin_opener::init())
