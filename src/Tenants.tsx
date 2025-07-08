@@ -38,7 +38,7 @@ const TenantsList: React.FC = () => {
   async function fetchTenants() {
     try {
       setLoading(true);
-      const db = await Database.load('sqlite:productionv1.db');
+      const db = await Database.load('sqlite:productionv2.db');
       const dbTenants: any = await db.select(`
         SELECT 
           t.tenant_id, t.full_name, t.email, t.phone_number, t.status,
@@ -60,7 +60,7 @@ const TenantsList: React.FC = () => {
 
   const handleDeleteTenant = async () => {
     if (!selectedTenant) return;
-    const db = await Database.load('sqlite:productionv1.db');
+    const db = await Database.load('sqlite:productionv2.db');
     setLoading(true);
     try {
       await db.execute(`DELETE FROM tenants WHERE tenant_id = $1`, [
@@ -84,7 +84,7 @@ const TenantsList: React.FC = () => {
   const handleSaveTenant = async (
     tenantData: Omit<Tenant, 'tenant_id'> | Tenant
   ) => {
-    const db = await Database.load('sqlite:productionv1.db');
+    const db = await Database.load('sqlite:productionv2.db');
     setLoading(true);
     try {
       if ('tenant_id' in tenantData && tenantData.tenant_id !== null) {
@@ -187,6 +187,55 @@ const TenantsList: React.FC = () => {
     console.log(`View details for tenant ID: ${tenantId}`);
   };
 
+  const handleExportCsv = async () => {
+    if (filteredTenants.length === 0) {
+      alert('No tenants to export.');
+      return;
+    }
+
+    const headers = [
+      'Tenant ID',
+      'Full Name',
+      'Email',
+      'Phone Number',
+      'Status',
+      'Unit ID',
+      'Unit Number',
+      'Property Name',
+      'Rent Amount',
+      'Lease Start Date',
+    ];
+
+    const csvRows = filteredTenants.map((tenant) => {
+      return [
+        tenant.tenant_id,
+        `"${tenant.full_name.replace(/"/g, '""')}"`, // Handle quotes in full_name
+        `"${tenant.email.replace(/"/g, '""')}"`, // Handle quotes in email
+        `"${tenant.phone_number.replace(/"/g, '""')}"`, // Handle quotes in phone_number
+        tenant.status,
+        tenant.unit_id || 'N/A',
+        tenant.unit_number || 'N/A',
+        `"${(tenant.property_name || 'N/A').replace(/"/g, '""')}"`, // Handle quotes in property_name
+        tenant.rent_amount,
+        tenant.lease_start_date, // Dates are already strings from DB
+      ]
+        .map((field) => (typeof field === 'string' ? field : String(field))) // Ensure all fields are strings
+        .join(',');
+    });
+
+    const csvContent = [headers.join(','), ...csvRows].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'tenants.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url); // Clean up the URL object
+  };
+
   if (loading) {
     return (
       <div className="p-6 text-center text-gray-600">Loading tenants...</div>
@@ -231,6 +280,12 @@ const TenantsList: React.FC = () => {
           >
             <Plus className="w-4 h-4" />
             Add New Tenant
+          </button>
+          <button
+            className="flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-md"
+            onClick={handleExportCsv}
+          >
+            Export CSV
           </button>
         </div>
       </div>

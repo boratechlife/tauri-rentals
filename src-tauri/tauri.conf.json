@@ -35,7 +35,7 @@
   },
   "plugins": {
     "sql": {
-      "preload": ["sqlite:productionv1.db"]
+      "preload": ["sqlite:productionv2.db"]
     }
   }
 }

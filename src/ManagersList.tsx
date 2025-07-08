@@ -23,7 +23,7 @@ const ManagersList: React.FC = () => {
   const [selectedManager, setSelectedManager] = useState<Manager | null>(null);
 
   async function fetchManagers() {
-    const db = await Database.load('sqlite:productionv1.db');
+    const db = await Database.load('sqlite:productionv2.db');
     try {
       setLoading(true);
 
@@ -55,7 +55,7 @@ const ManagersList: React.FC = () => {
   const handleSaveManager = async (
     managerData: Omit<Manager, 'manager_id'> | Manager
   ) => {
-    const db = await Database.load('sqlite:productionv1.db');
+    const db = await Database.load('sqlite:productionv2.db');
     setLoading(true);
     try {
       if ('manager_id' in managerData && managerData.manager_id !== null) {
@@ -93,9 +93,51 @@ const ManagersList: React.FC = () => {
     }
   };
 
+  const handleExportCsv = () => {
+    if (filteredManagers.length === 0) {
+      alert('No managers to export.');
+      return;
+    }
+
+    const headers = ['Manager ID', 'Name', 'Email', 'Phone', 'Hire Date'];
+
+    const csvRows = filteredManagers.map((manager) => {
+      // Helper to safely format a string for CSV
+      const escapeCsv = (text: string | number | null | undefined) => {
+        if (text === null || text === undefined) return '';
+        const str = String(text);
+        // If the string contains a comma, double quote, or newline, wrap it in double quotes
+        // And escape any double quotes within the string by doubling them
+        if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      };
+
+      return [
+        escapeCsv(manager.manager_id),
+        escapeCsv(manager.name),
+        escapeCsv(manager.email),
+        escapeCsv(manager.phone),
+        escapeCsv(manager.hire_date),
+      ].join(',');
+    });
+
+    const csvContent = [headers.join(','), ...csvRows].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'managers.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url); // Clean up the URL object
+  };
   const handleDeleteManager = async () => {
     if (!selectedManager) return;
-    const db = await Database.load('sqlite:productionv1.db');
+    const db = await Database.load('sqlite:productionv2.db');
     setLoading(true);
     try {
       await db.execute(`DELETE FROM managers WHERE manager_id = $1`, [
@@ -141,6 +183,12 @@ const ManagersList: React.FC = () => {
           >
             <Plus className="w-4 h-4" />
             Add New Manager
+          </button>
+          <button
+            className="flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-md"
+            onClick={handleExportCsv}
+          >
+            Export CSV
           </button>
         </div>
       </div>

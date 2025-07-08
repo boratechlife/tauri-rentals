@@ -31,7 +31,7 @@ const BlocksList: React.FC = () => {
   async function fetchBlocks() {
     try {
       setLoading(true);
-      const db = await Database.load('sqlite:productionv1.db');
+      const db = await Database.load('sqlite:productionv2.db');
       const dbBlocks = await db.select<Block[]>(
         `SELECT b.block_id, b.block_name, b.property_id, b.floor_count, b.notes, p.name AS property_name
          FROM blocks b
@@ -49,7 +49,7 @@ const BlocksList: React.FC = () => {
 
   async function fetchProperties() {
     try {
-      const db = await Database.load('sqlite:productionv1.db');
+      const db = await Database.load('sqlite:productionv2.db');
       const dbProperties = await db.select<Property[]>(
         'SELECT property_id, name FROM properties'
       );
@@ -73,10 +73,61 @@ const BlocksList: React.FC = () => {
         .includes(searchText.toLowerCase())
   );
 
+  const handleExportCsv = () => {
+    if (filteredBlocks.length === 0) {
+      alert('No blocks to export.');
+      return;
+    }
+
+    const headers = [
+      'Block ID',
+      'Block Name',
+      'Property ID',
+      'Property Name',
+      'Floor Count',
+      'Notes',
+    ];
+
+    const csvRows = filteredBlocks.map((block) => {
+      // Helper to safely format a string for CSV
+      const escapeCsv = (text: string | number | null | undefined) => {
+        if (text === null || text === undefined) return '';
+        const str = String(text);
+        // If the string contains a comma, double quote, or newline, wrap it in double quotes
+        // And escape any double quotes within the string by doubling them
+        if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      };
+
+      return [
+        escapeCsv(block.block_id),
+        escapeCsv(block.block_name),
+        escapeCsv(block.property_id),
+        escapeCsv(block.property_name), // Include property_name
+        escapeCsv(block.floor_count),
+        escapeCsv(block.notes),
+      ].join(',');
+    });
+
+    const csvContent = [headers.join(','), ...csvRows].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'blocks.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url); // Clean up the URL object
+  };
+
   const handleSaveBlock = async (
     blockData: Omit<Block, 'block_id' | 'property_name'> | Block
   ) => {
-    const db = await Database.load('sqlite:productionv1.db');
+    const db = await Database.load('sqlite:productionv2.db');
     setLoading(true);
     try {
       if ('block_id' in blockData && blockData.block_id !== null) {
@@ -115,7 +166,7 @@ const BlocksList: React.FC = () => {
   };
   const handleDeleteBlock = async () => {
     if (!selectedBlock || !selectedBlock.block_id) return;
-    const db = await Database.load('sqlite:productionv1.db');
+    const db = await Database.load('sqlite:productionv2.db');
     setLoading(true);
     try {
       await db.execute('DELETE FROM blocks WHERE block_id = $1', [
@@ -164,6 +215,12 @@ const BlocksList: React.FC = () => {
           >
             <Plus className="w-4 h-4" />
             Add New Block
+          </button>
+          <button
+            className="flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-md"
+            onClick={handleExportCsv}
+          >
+            Export CSV
           </button>
         </div>
       </div>

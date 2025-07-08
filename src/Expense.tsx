@@ -85,10 +85,79 @@ const ExpensePage: React.FC = () => {
   });
   const [isEditing, setIsEditing] = useState(false);
 
+  const handleExportCsv = () => {
+    if (filteredExpenses.length === 0) {
+      alert('No expenses to export.');
+      return;
+    }
+
+    const headers = [
+      'Expense ID',
+      'Amount',
+      'Category',
+      'Description',
+      'Expense Date',
+      'Unit ID',
+      'Unit Number',
+      'Block ID',
+      'Block Name',
+      'Property ID',
+      'Payment Method',
+      'Vendor',
+      'Invoice Number',
+      'Paid By',
+      'Created At',
+    ];
+
+    const csvRows = filteredExpenses.map((expense) => {
+      // Helper to safely format a string for CSV
+      const escapeCsv = (text: string | number | null | undefined) => {
+        if (text === null || text === undefined) return '';
+        const str = String(text);
+        // If the string contains a comma, double quote, or newline, wrap it in double quotes
+        // And escape any double quotes within the string by doubling them
+        if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      };
+
+      return [
+        escapeCsv(expense.expense_id),
+        escapeCsv(expense.amount),
+        escapeCsv(expense.category),
+        escapeCsv(expense.description),
+        escapeCsv(expense.expense_date),
+        escapeCsv(expense.unit_id),
+        escapeCsv(expense.unit_number),
+        escapeCsv(expense.block_id),
+        escapeCsv(expense.block_name),
+        escapeCsv(expense.property_id),
+        escapeCsv(expense.payment_method),
+        escapeCsv(expense.vendor),
+        escapeCsv(expense.invoice_number),
+        escapeCsv(expense.paid_by),
+        escapeCsv(expense.created_at),
+      ].join(',');
+    });
+
+    const csvContent = [headers.join(','), ...csvRows].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'expenses.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url); // Clean up the URL object
+  };
+
   const fetchData = async () => {
     try {
       setLoading(true);
-      const db = await Database.load('sqlite:productionv1.db');
+      const db = await Database.load('sqlite:productionv2.db');
 
       // Use a safer query that handles missing block_id by making it optional
       const dbExpenses: any = await db.select(
@@ -142,7 +211,7 @@ const ExpensePage: React.FC = () => {
 
   const handleEditExpenseSubmit = async (editedExpenseData: Expense) => {
     try {
-      const db = await Database.load('sqlite:productionv1.db');
+      const db = await Database.load('sqlite:productionv2.db');
       const result = await db.execute(
         `UPDATE expenses
          SET amount = $1, category = $2, description = $3, expense_date = $4, unit_id = $5, block_id = $6, property_id = $7,
@@ -193,7 +262,7 @@ const ExpensePage: React.FC = () => {
     if (!window.confirm('Are you sure you want to delete this expense?'))
       return;
     try {
-      const db = await Database.load('sqlite:productionv1.db');
+      const db = await Database.load('sqlite:productionv2.db');
       const result = await db.execute(
         `DELETE FROM expenses WHERE expense_id = $1`,
         [expense_id]
@@ -210,7 +279,7 @@ const ExpensePage: React.FC = () => {
 
   const handleAddExpenseSubmit = async (newExpenseData: NewExpense) => {
     try {
-      const db = await Database.load('sqlite:productionv1.db');
+      const db = await Database.load('sqlite:productionv2.db');
       const result = await db.execute(
         `INSERT INTO expenses (expense_id, amount, category, description, expense_date, unit_id, block_id, property_id,
           payment_method, vendor, invoice_number, paid_by, created_at)
@@ -354,6 +423,13 @@ const ExpensePage: React.FC = () => {
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
           >
             <Plus className="w-4 h-4" /> Add Expense
+          </button>
+
+          <button
+            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+            onClick={handleExportCsv}
+          >
+            Export CSV
           </button>
         </div>
 

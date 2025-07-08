@@ -88,7 +88,7 @@ const PropertiesPage = () => {
       let db;
       try {
         setLoading(true);
-        db = await Database.load('sqlite:productionv1.db');
+        db = await Database.load('sqlite:productionv2.db');
         const dbProperties = await db.select<Property[]>(
           `SELECT property_id, name, address, total_units, property_type, status, last_inspection, manager_id, created_at, updated_at FROM properties`
         );
@@ -115,7 +115,7 @@ const PropertiesPage = () => {
       let db;
       try {
         setLoading(true);
-        db = await Database.load('sqlite:productionv1.db');
+        db = await Database.load('sqlite:productionv2.db');
         const dbManagers = await db.select<Manager[]>(
           `SELECT manager_id, name FROM managers`
         );
@@ -161,7 +161,7 @@ const PropertiesPage = () => {
     e.preventDefault(); // Prevent page reload
     let db;
     try {
-      db = await Database.load('sqlite:productionv1.db');
+      db = await Database.load('sqlite:productionv2.db');
       setLoading(true);
 
       if (editMode) {
@@ -227,6 +227,63 @@ const PropertiesPage = () => {
     }
   };
 
+  const handleExportCsv = async () => {
+    if (filteredProperties.length === 0) {
+      alert('No properties to export.');
+      return;
+    }
+
+    // Define CSV headers
+    const headers = [
+      'Property ID',
+      'Name',
+      'Address',
+      'Total Units',
+      'Property Type',
+      'Status',
+      'Last Inspection',
+      'Manager Name',
+      'Created At',
+      'Updated At',
+    ];
+
+    // Map properties to CSV rows
+    const csvRows = filteredProperties.map((property) => {
+      const manager = managers.find(
+        (m) => m.manager_id === property.manager_id
+      );
+      const managerName = manager ? manager.name : 'N/A';
+      return [
+        property.property_id,
+        `"${property.name.replace(/"/g, '""')}"`, // Handle commas and quotes in name
+        `"${property.address.replace(/"/g, '""')}"`, // Handle commas and quotes in address
+        property.total_units,
+        property.property_type,
+        property.status,
+        property.last_inspection || 'N/A',
+        `"${managerName.replace(/"/g, '""')}"`, // Handle commas and quotes in manager name
+        new Date(property.created_at).toLocaleDateString(),
+        new Date(property.updated_at).toLocaleDateString(),
+      ]
+        .map((field) => (typeof field === 'string' ? field : String(field)))
+        .join(',');
+    });
+
+    // Combine headers and rows
+    const csvContent = [headers.join(','), ...csvRows].join('\n');
+
+    // Create a Blob and download link
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'properties.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url); // Clean up the URL object
+  };
+
   // Handle edit property
   const handleEditProperty = (id: number) => {
     const property = properties.find((p) => p.property_id === id);
@@ -259,7 +316,7 @@ const PropertiesPage = () => {
   const handleConfirmDelete = async () => {
     let db;
     try {
-      db = await Database.load('sqlite:productionv1.db');
+      db = await Database.load('sqlite:productionv2.db');
       setLoading(true);
       await db.execute(`DELETE FROM properties WHERE property_id = $1`, [
         deletingPropertyId,
@@ -510,6 +567,12 @@ const PropertiesPage = () => {
               List
             </button>
           </div>
+          <button
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            onClick={handleExportCsv}
+          >
+            Export CSV
+          </button>
         </div>
       </header>
 

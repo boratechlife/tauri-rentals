@@ -30,6 +30,7 @@ import {
   Users,
   Dog,
 } from 'lucide-react';
+import UpgradeModal from './UpgradeModal';
 
 // Define precise UnitType for database-driven data
 interface UnitType {
@@ -118,7 +119,7 @@ const Unit = () => {
   const [isViewUnitModalOpen, setIsViewUnitModalOpen] = useState(false);
   const [selectedUnit, setSelectedUnit] = useState<UnitType | null>(null);
   const [isExporting, setIsExporting] = useState(false);
-
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   // State for new unit form data
   const [newUnitData, setNewUnitData] = useState<{
     unit_number: string;
@@ -245,7 +246,7 @@ const Unit = () => {
     async function fetchProperties() {
       try {
         setLoading(true);
-        db = await Database.load('sqlite:productionv1.db');
+        db = await Database.load('sqlite:productionv2.db');
         const dbProperties: any = await db.select(
           `SELECT property_id, name,total_units FROM properties`
         );
@@ -283,7 +284,7 @@ const Unit = () => {
       try {
         setLoading(true);
         if (!db) {
-          db = await Database.load('sqlite:productionv1.db');
+          db = await Database.load('sqlite:productionv2.db');
         }
 
         const dbUnits = await db.select<
@@ -435,7 +436,7 @@ const Unit = () => {
   const handleSaveUnit = async (unitData: any) => {
     let db;
     try {
-      db = await Database.load('sqlite:productionv1.db');
+      db = await Database.load('sqlite:productionv2.db');
       setLoading(true);
 
       const propertyCheck = await db.select<{ property_id: number }[]>(
@@ -484,6 +485,14 @@ const Unit = () => {
           ]
         );
       } else {
+        if (units.length >= 400) {
+          // Check if current units count is 400 or more
+          setShowUpgradeModal(true); // Show the upgrade modal
+          setLoading(false); // Stop loading animation
+          db.close(); // Close the database connection
+          return; // Prevent further execution of new unit creation
+        }
+
         await db.execute(
           `INSERT INTO units (unit_number, property_id, block_id, 
            floor_number, unit_status, unit_type, bedroom_count, bathroom_count, 
@@ -674,7 +683,7 @@ const Unit = () => {
     if (window.confirm(`Are you sure you want to delete unit ${unitId}?`)) {
       try {
         setLoading(true);
-        const db = await Database.load('sqlite:productionv1.db');
+        const db = await Database.load('sqlite:productionv2.db');
         await db.execute(`DELETE FROM units WHERE unit_id = $1`, [unitId]);
         setUnits(units.filter((unit) => unit.unit_id !== unitId));
         setError('');
@@ -1595,6 +1604,11 @@ const Unit = () => {
           </div>
         </div>
       )}
+
+      <UpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+      />
     </div>
   );
 };
