@@ -88,7 +88,7 @@ const PropertiesPage = () => {
       let db;
       try {
         setLoading(true);
-        db = await Database.load('sqlite:productionv6.db');
+        db = await Database.load('sqlite:productionv7.db');
         const dbProperties = await db.select<Property[]>(
           `SELECT property_id, name, address, total_units, property_type, status, last_inspection, manager_id, created_at, updated_at FROM properties`
         );
@@ -115,7 +115,7 @@ const PropertiesPage = () => {
       let db;
       try {
         setLoading(true);
-        db = await Database.load('sqlite:productionv6.db');
+        db = await Database.load('sqlite:productionv7.db');
         const dbManagers = await db.select<Manager[]>(
           `SELECT manager_id, name FROM managers`
         );
@@ -160,7 +160,7 @@ const PropertiesPage = () => {
     e.preventDefault(); // Prevent page reload
     let db;
     try {
-      db = await Database.load('sqlite:productionv6.db');
+      db = await Database.load('sqlite:productionv7.db');
       setLoading(true);
 
       // Check for duplicate property name
@@ -332,7 +332,7 @@ const PropertiesPage = () => {
   const handleConfirmDelete = async () => {
     let db;
     try {
-      db = await Database.load('sqlite:productionv6.db');
+      db = await Database.load('sqlite:productionv7.db');
       setLoading(true);
       await db.execute(`DELETE FROM properties WHERE property_id = $1`, [
         deletingPropertyId,

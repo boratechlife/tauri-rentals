@@ -87,7 +87,7 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
   useEffect(() => {
     async function fetchData() {
       try {
-        const db = await Database.load('sqlite:productionv6.db');
+        const db = await Database.load('sqlite:productionv7.db');
 
         // Fetch tenants along with their active unit and property from the 'leases' table
         // This query is now updated to fetch property_name and unit_number for display

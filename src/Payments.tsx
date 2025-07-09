@@ -93,7 +93,7 @@ const PropertyManagementDashboard: React.FC = () => {
   async function fetchPayments() {
     try {
       setLoading(true);
-      const db = await Database.load('sqlite:productionv6.db');
+      const db = await Database.load('sqlite:productionv7.db');
       const dbPayments = await db.select(
         `
         SELECT 
@@ -135,13 +135,8 @@ const PropertyManagementDashboard: React.FC = () => {
     month?: string
   ): Promise<ArrearsReport[]> {
     try {
-      const db = await Database.load('sqlite:productionv6.db');
-      const tenantsData = await db.select(`
-  SELECT t.tenant_id, t.full_name, t.rent_amount, t.lease_start_date, u.unit_number
-  FROM tenants t
-  LEFT JOIN units u ON t.unit_id = u.unit_id
-  
-`);
+      const db = await Database.load('sqlite:productionv7.db');
+
       const arrearsReport: ArrearsReport[] = [];
 
       for (const tenant of tenants as any[]) {
@@ -169,7 +164,7 @@ const PropertyManagementDashboard: React.FC = () => {
 
         const totalExpected = monthsCounted * rentAmount[0].monthly_rent;
 
-        const paymentsForTenant = await db.select(
+        const paymentsForTenant: any = await db.select(
           `
   SELECT SUM(amount_paid) as total_paid
   FROM payments
@@ -331,7 +326,7 @@ const PropertyManagementDashboard: React.FC = () => {
   };
   async function generateMonthlyReport(month: string) {
     try {
-      const db = await Database.load('sqlite:productionv6.db');
+      const db = await Database.load('sqlite:productionv7.db');
       const reportData = await db.select(
         `
         SELECT 
@@ -359,7 +354,7 @@ const PropertyManagementDashboard: React.FC = () => {
       return;
     }
     setLoading(true);
-    const db = await Database.load('sqlite:productionv6.db');
+    const db = await Database.load('sqlite:productionv7.db');
     try {
       await db.execute(`DELETE FROM payments WHERE payment_id = $1`, [
         selectedPayment.payment_id,
@@ -379,7 +374,7 @@ const PropertyManagementDashboard: React.FC = () => {
   const handleSavePayment = async (
     paymentData: Omit<Payment, 'payment_id'> | Payment
   ) => {
-    const db = await Database.load('sqlite:productionv6.db');
+    const db = await Database.load('sqlite:productionv7.db');
     setLoading(true);
     const paymentMonth = paymentData.due_date.slice(0, 7);
     const status =

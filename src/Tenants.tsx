@@ -38,7 +38,7 @@ const TenantsList: React.FC = () => {
   async function fetchTenants() {
     try {
       setLoading(true);
-      const db = await Database.load('sqlite:productionv6.db');
+      const db = await Database.load('sqlite:productionv7.db');
       const dbTenants: any = await db.select(`
         SELECT 
           t.tenant_id, t.full_name, t.email, t.phone_number, t.status,
@@ -61,13 +61,13 @@ const TenantsList: React.FC = () => {
   const handleDeleteTenant = async () => {
     if (!selectedTenant) return;
 
-    const db = await Database.load('sqlite:productionv6.db');
+    const db = await Database.load('sqlite:productionv7.db');
     setLoading(true);
 
     try {
       // 1. Get the unit_id associated with the tenant's active lease
       // We assume a tenant can only have one active lease at a time for this logic.
-      const result = await db.select(
+      const result: any = await db.select(
         `
       SELECT unit_id FROM leases WHERE tenant_id = $1 AND status = 'active' LIMIT 1
     `,
@@ -135,18 +135,18 @@ const TenantsList: React.FC = () => {
   const handleSaveTenant = async (
     tenantData: Omit<Tenant, 'tenant_id'> | Tenant
   ) => {
-    const db = await Database.load('sqlite:productionv6.db');
+    const db = await Database.load('sqlite:productionv7.db');
     setLoading(true);
     try {
       if ('tenant_id' in tenantData && tenantData.tenant_id !== null) {
         // --- Update existing tenant ---
 
         // Fetch the current tenant data to get the old unit_id
-        const oldTenantData = await db.execute(
+        const oldTenantData: any = await db.execute(
           `SELECT unit_id FROM tenants WHERE tenant_id = $1`,
           [tenantData.tenant_id]
         );
-        const oldUnitId = oldTenantData.rows?.[0]?.unit_id;
+        const oldUnitId = oldTenantData[0]?.unit_id;
 
         await db.execute(
           `UPDATE tenants SET full_name = $1, email = $2, phone_number = $3, status = $4, unit_id = $5, rent_amount = $6, lease_start_date = $7 WHERE tenant_id = $8`,
@@ -181,11 +181,11 @@ const TenantsList: React.FC = () => {
         // If the tenant had an old unit and is now assigned to a different one (or unassigned)
         if (oldUnitId && oldUnitId !== tenantData.unit_id) {
           // Check if the old unit is now truly vacant (no other tenant assigned to it)
-          const tenantsInOldUnit = await db.execute(
+          const tenantsInOldUnit: any = await db.select(
             `SELECT COUNT(*) as count FROM tenants WHERE unit_id = $1`,
             [oldUnitId]
           );
-          if (tenantsInOldUnit.rows?.[0]?.count === 0) {
+          if (tenantsInOldUnit[0]?.count === 0) {
             await db.execute(
               `UPDATE units SET unit_status = 'Available' WHERE unit_id = $1`,
               [oldUnitId]

@@ -52,7 +52,7 @@ const ComplaintsPage: React.FC = () => {
   async function fetchComplaints() {
     try {
       setLoading(true);
-      const db = await Database.load('sqlite:productionv6.db');
+      const db = await Database.load('sqlite:productionv7.db');
       const dbComplaints = await db.select(`
       SELECT 
         c.complaint_id, c.unit_id, c.tenant_id, c.description, c.status, c.created_at, c.updated_at,
@@ -73,7 +73,7 @@ const ComplaintsPage: React.FC = () => {
 
   async function fetchUnitsAndTenants() {
     try {
-      const db = await Database.load('sqlite:productionv6.db');
+      const db = await Database.load('sqlite:productionv7.db');
       const dbUnits = await db.select(
         'SELECT unit_id, unit_number, property_id FROM units'
       );
@@ -103,7 +103,7 @@ const ComplaintsPage: React.FC = () => {
     data: Omit<Complaint, 'complaint_id' | 'created_at' | 'updated_at'>
   ) {
     try {
-      const db = await Database.load('sqlite:productionv6.db');
+      const db = await Database.load('sqlite:productionv7.db');
       if (selectedComplaint) {
         await db.execute(
           `UPDATE complaints 
@@ -133,7 +133,7 @@ const ComplaintsPage: React.FC = () => {
 
   async function handleDeleteComplaint(complaintId: number) {
     try {
-      const db = await Database.load('sqlite:productionv6.db');
+      const db = await Database.load('sqlite:productionv7.db');
       await db.execute('DELETE FROM complaints WHERE complaint_id = $1', [
         complaintId,
       ]);
