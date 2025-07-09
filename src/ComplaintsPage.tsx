@@ -14,10 +14,17 @@ export interface Complaint {
   updated_at: string;
   unit_number?: string;
   tenant_name?: string;
+  property_name?: string;
+}
+
+interface Property {
+  property_id: number;
+  name: string;
 }
 
 const ComplaintsPage: React.FC = () => {
   const [complaints, setComplaints] = useState<Complaint[]>([]);
+  const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<
@@ -35,8 +42,9 @@ const ComplaintsPage: React.FC = () => {
   );
 
   const [units, setUnits] = useState<
-    { unit_id: number; unit_number: string }[]
+    { unit_id: number; unit_number: string; property_id: number }[]
   >([]);
+
   const [tenants, setTenants] = useState<
     { tenant_id: number; full_name: string }[]
   >([]);
@@ -44,7 +52,7 @@ const ComplaintsPage: React.FC = () => {
   async function fetchComplaints() {
     try {
       setLoading(true);
-      const db = await Database.load('sqlite:productionv3.db');
+      const db = await Database.load('sqlite:productionv6.db');
       const dbComplaints = await db.select(`
       SELECT 
         c.complaint_id, c.unit_id, c.tenant_id, c.description, c.status, c.created_at, c.updated_at,
@@ -65,13 +73,26 @@ const ComplaintsPage: React.FC = () => {
 
   async function fetchUnitsAndTenants() {
     try {
-      const db = await Database.load('sqlite:productionv3.db');
-      const dbUnits = await db.select('SELECT unit_id, unit_number FROM units');
+      const db = await Database.load('sqlite:productionv6.db');
+      const dbUnits = await db.select(
+        'SELECT unit_id, unit_number, property_id FROM units'
+      );
       const dbTenants = await db.select(
         'SELECT tenant_id, full_name FROM tenants'
       );
-      setUnits(dbUnits as { unit_id: number; unit_number: string }[]);
+      setUnits(
+        dbUnits as {
+          unit_id: number;
+          unit_number: string;
+          property_id: number;
+        }[]
+      );
       setTenants(dbTenants as { tenant_id: number; full_name: string }[]);
+
+      const dbProperties = await db.select(
+        'SELECT property_id, name FROM properties'
+      );
+      setProperties(dbProperties as { property_id: number; name: string }[]);
     } catch (err) {
       console.error('Error fetching units/tenants:', err);
       setError('Failed to get units/tenants');
@@ -82,7 +103,7 @@ const ComplaintsPage: React.FC = () => {
     data: Omit<Complaint, 'complaint_id' | 'created_at' | 'updated_at'>
   ) {
     try {
-      const db = await Database.load('sqlite:productionv3.db');
+      const db = await Database.load('sqlite:productionv6.db');
       if (selectedComplaint) {
         await db.execute(
           `UPDATE complaints 
@@ -112,11 +133,14 @@ const ComplaintsPage: React.FC = () => {
 
   async function handleDeleteComplaint(complaintId: number) {
     try {
-      const db = await Database.load('sqlite:productionv3.db');
+      const db = await Database.load('sqlite:productionv6.db');
       await db.execute('DELETE FROM complaints WHERE complaint_id = $1', [
         complaintId,
       ]);
+
       fetchComplaints();
+      setShowDeleteConfirm(false);
+      setSelectedComplaint(null);
     } catch (err) {
       console.error('Error deleting complaint:', err);
       setError('Failed to delete complaint');
@@ -442,6 +466,7 @@ const ComplaintsPage: React.FC = () => {
         initialData={selectedComplaint}
         units={units}
         tenants={tenants}
+        properties={properties}
       />
     </div>
   );

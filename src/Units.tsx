@@ -246,7 +246,7 @@ const Unit = () => {
     async function fetchProperties() {
       try {
         setLoading(true);
-        db = await Database.load('sqlite:productionv3.db');
+        db = await Database.load('sqlite:productionv6.db');
         const dbProperties: any = await db.select(
           `SELECT property_id, name,total_units FROM properties`
         );
@@ -271,7 +271,7 @@ const Unit = () => {
         setProperties(formattedProperties);
       } catch (err) {
         console.error('Error fetching properties:', err);
-        setError('Failed to load properties.');
+        // setError('Failed to load properties.');
         console.log('Error details:', error);
       } finally {
         setLoading(false);
@@ -284,7 +284,7 @@ const Unit = () => {
       try {
         setLoading(true);
         if (!db) {
-          db = await Database.load('sqlite:productionv3.db');
+          db = await Database.load('sqlite:productionv6.db');
         }
 
         const dbUnits = await db.select<
@@ -436,7 +436,7 @@ const Unit = () => {
   const handleSaveUnit = async (unitData: any) => {
     let db;
     try {
-      db = await Database.load('sqlite:productionv3.db');
+      db = await Database.load('sqlite:productionv6.db');
       setLoading(true);
 
       const propertyCheck = await db.select<{ property_id: number }[]>(
@@ -683,7 +683,7 @@ const Unit = () => {
     if (window.confirm(`Are you sure you want to delete unit ${unitId}?`)) {
       try {
         setLoading(true);
-        const db = await Database.load('sqlite:productionv3.db');
+        const db = await Database.load('sqlite:productionv6.db');
         await db.execute(`DELETE FROM units WHERE unit_id = $1`, [unitId]);
         setUnits(units.filter((unit) => unit.unit_id !== unitId));
         setError('');

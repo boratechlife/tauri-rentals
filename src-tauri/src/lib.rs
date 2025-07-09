@@ -51,7 +51,10 @@ pub fn run() {
                 transaction_reference TEXT,                     -- Optional: e.g., M-Pesa code
                 remarks TEXT,                                   -- Optional: freeform comments
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,  -- Timestamp for creation
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP   -- Timestamp for updates
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,  -- Timestamp for updates
+                FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id) ON DELETE CASCADE,
+                FOREIGN KEY (property_id) REFERENCES properties(property_id) ON DELETE CASCADE,
+                 FOREIGN KEY (unit_id) REFERENCES units(unit_id) ON DELETE CASCADE
             );
 
               
@@ -82,7 +85,8 @@ pub fn run() {
                 unit_id INTEGER, -- should reference unit or property
                 status TEXT DEFAULT 'active',
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (unit_id) REFERENCES units(unit_id) ON DELETE CASCADE
                 );
 
                
@@ -114,8 +118,9 @@ pub fn run() {
                 security_deposit DECIMAL(10, 2),
                 tenant_id INTEGER,
                 notes TEXT,
-                FOREIGN KEY (property_id) REFERENCES properties(property_id),
-                FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id)
+                FOREIGN KEY (property_id) REFERENCES properties(property_id) ON DELETE CASCADE,
+                FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id) ON DELETE CASCADE
+                FOREIGN KEY (block_id) REFERENCES blocks(block_id) ON DELETE CASCADE
                 );
 
                
@@ -141,8 +146,8 @@ pub fn run() {
                 lease_end_date DATE NOT NULL,
                 deposit_paid DECIMAL(10,2),
                 status TEXT DEFAULT 'active', -- optional: active/expired/terminated
-                FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id),
-                FOREIGN KEY (unit_id) REFERENCES units(unit_id)
+                FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id) ON DELETE CASCADE,
+                FOREIGN KEY (unit_id) REFERENCES units(unit_id) ON DELETE CASCADE
                 );
             ",
             kind: MigrationKind::Up,
@@ -168,7 +173,7 @@ pub fn run() {
                 manager_id INTEGER NOT NULL,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (manager_id) REFERENCES managers(manager_id)
+                FOREIGN KEY (manager_id) REFERENCES managers(manager_id) ON DELETE CASCADE
                 );
             ",
             kind: MigrationKind::Up,
@@ -189,7 +194,7 @@ pub fn run() {
                 property_id INTEGER NOT NULL,
                 floor_count INTEGER,
                 notes TEXT,
-                FOREIGN KEY (property_id) REFERENCES properties(property_id)
+                FOREIGN KEY (property_id) REFERENCES properties(property_id) ON DELETE CASCADE
                 );
 
 
@@ -221,9 +226,9 @@ pub fn run() {
                 invoice_number TEXT,
                 paid_by TEXT, -- who entered or approved the expense
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (unit_id) REFERENCES units(unit_id),
-                FOREIGN KEY (block_id) REFERENCES blocks(block_id),
-                FOREIGN KEY (property_id) REFERENCES properties(property_id)
+                FOREIGN KEY (unit_id) REFERENCES units(unit_id) ON DELETE CASCADE,
+                FOREIGN KEY (block_id) REFERENCES blocks(block_id) ON DELETE CASCADE,
+                FOREIGN KEY (property_id) REFERENCES properties(property_id) ON DELETE CASCADE
                 );
 
 
@@ -340,8 +345,8 @@ pub fn run() {
                     status TEXT NOT NULL CHECK(status IN ('Open', 'In Progress', 'Resolved')),
                     created_at TEXT DEFAULT (datetime('now')),
                     updated_at TEXT DEFAULT (datetime('now')),
-                    FOREIGN KEY (unit_id) REFERENCES units(unit_id),
-                    FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id)
+                    FOREIGN KEY (unit_id) REFERENCES units(unit_id) ON DELETE CASCADE,
+                    FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id) ON DELETE CASCADE
                     );
             ",
             kind: MigrationKind::Up, // This is an "Up" migration to apply changes
@@ -378,7 +383,7 @@ pub fn run() {
         .plugin(tauri_plugin_sql::Builder::new().build())
         .plugin(
             SqlBuilder::default() // Use our aliased Builder
-                .add_migrations("sqlite:productionv3.db", migrations) // 'test4.db' is our database file
+                .add_migrations("sqlite:productionv6.db", migrations) // 'test4.db' is our database file
                 .build(),
         )
         .plugin(tauri_plugin_opener::init())

@@ -23,10 +23,9 @@ const ManagersList: React.FC = () => {
   const [selectedManager, setSelectedManager] = useState<Manager | null>(null);
 
   async function fetchManagers() {
-    const db = await Database.load('sqlite:productionv3.db');
+    const db = await Database.load('sqlite:productionv6.db');
     try {
       setLoading(true);
-
       const dbManagers = await db.select<Manager[]>(
         'SELECT manager_id, name, email, phone, hire_date FROM managers'
       );
@@ -37,7 +36,7 @@ const ManagersList: React.FC = () => {
       setError('Failed to get managers - check console');
     } finally {
       setLoading(false);
-      db.close();
+      await db.close();
     }
   }
 
@@ -55,7 +54,7 @@ const ManagersList: React.FC = () => {
   const handleSaveManager = async (
     managerData: Omit<Manager, 'manager_id'> | Manager
   ) => {
-    const db = await Database.load('sqlite:productionv3.db');
+    const db = await Database.load('sqlite:productionv6.db');
     setLoading(true);
     try {
       if ('manager_id' in managerData && managerData.manager_id !== null) {
@@ -82,7 +81,7 @@ const ManagersList: React.FC = () => {
         );
         console.log('New manager added.');
       }
-      fetchManagers();
+      await fetchManagers();
       setShowAddEditManagerModal(false);
       setSelectedManager(null);
     } catch (err) {
@@ -90,6 +89,7 @@ const ManagersList: React.FC = () => {
       setError('Failed to save manager.');
     } finally {
       setLoading(false);
+      await db.close();
     }
   };
 
@@ -102,12 +102,9 @@ const ManagersList: React.FC = () => {
     const headers = ['Manager ID', 'Name', 'Email', 'Phone', 'Hire Date'];
 
     const csvRows = filteredManagers.map((manager) => {
-      // Helper to safely format a string for CSV
       const escapeCsv = (text: string | number | null | undefined) => {
         if (text === null || text === undefined) return '';
         const str = String(text);
-        // If the string contains a comma, double quote, or newline, wrap it in double quotes
-        // And escape any double quotes within the string by doubling them
         if (str.includes(',') || str.includes('"') || str.includes('\n')) {
           return `"${str.replace(/"/g, '""')}"`;
         }
@@ -133,18 +130,35 @@ const ManagersList: React.FC = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    URL.revokeObjectURL(url); // Clean up the URL object
+    URL.revokeObjectURL(url);
   };
+
   const handleDeleteManager = async () => {
     if (!selectedManager) return;
-    const db = await Database.load('sqlite:productionv3.db');
+    const db = await Database.load('sqlite:productionv6.db');
     setLoading(true);
     try {
+      // Check if manager has associated properties
+      const properties = await db.select<{ property_id: number }[]>(
+        `SELECT property_id FROM properties WHERE manager_id = $1`,
+        [selectedManager.manager_id]
+      );
+
+      if (properties.length > 0) {
+        console.log('Properties', properties);
+        setError(
+          `Cannot delete ${selectedManager.name} because they manage ${properties.length} property(ies). Please reassign these properties to another manager first.`
+        );
+        setShowDeleteManagerConfirm(false);
+        return;
+      }
+
+      // Proceed with deletion if no properties are associated
       await db.execute(`DELETE FROM managers WHERE manager_id = $1`, [
         selectedManager.manager_id,
       ]);
       console.log('Manager deleted:', selectedManager.manager_id);
-      fetchManagers();
+      await fetchManagers();
       setShowDeleteManagerConfirm(false);
       setSelectedManager(null);
     } catch (err) {
@@ -152,8 +166,10 @@ const ManagersList: React.FC = () => {
       setError('Failed to delete manager.');
     } finally {
       setLoading(false);
+      await db.close();
     }
   };
+
   return (
     <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
       <div className="flex justify-between items-center mb-6">
@@ -195,7 +211,11 @@ const ManagersList: React.FC = () => {
       {loading && (
         <div className="p-6 text-center text-gray-600">Loading managers...</div>
       )}
-      {error && <div className="p-6 text-center text-red-600">{error}</div>}
+      {error && (
+        <div className="p-6 text-center text-red-600 bg-red-50 rounded-lg">
+          {error}
+        </div>
+      )}
       {!loading && !error && filteredManagers.length === 0 && (
         <div className="col-span-full text-center py-10 text-gray-600 text-lg">
           No managers found.
@@ -235,7 +255,6 @@ const ManagersList: React.FC = () => {
               >
                 <Edit className="w-5 h-5" />
               </button>
-
               <button
                 onClick={() => {
                   setSelectedManager(manager);

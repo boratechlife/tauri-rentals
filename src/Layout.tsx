@@ -15,12 +15,13 @@ const Layout = () => {
   // Navigation items
   const navItems: NavItem[] = [
     { tab: 'overview', to: '/' },
+    { tab: 'managers', to: '/managers' },
     { tab: 'properties', to: '/properties' },
     { tab: 'units', to: '/units' },
     { tab: 'tenants', to: '/tenants' },
     { tab: 'finances', to: '/payments' },
     { tab: 'expenses', to: '/expenses' },
-    { tab: 'managers', to: '/managers' },
+
     { tab: 'blocks', to: '/blocks' },
     { tab: 'complaints', to: '/complaints' },
   ];

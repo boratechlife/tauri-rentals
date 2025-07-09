@@ -1,7 +1,28 @@
 import { X } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { Payment } from './Payments';
+import { Payment } from './Payments'; // Assuming Payment interface is defined here
 import Database from '@tauri-apps/plugin-sql';
+
+// Define Tenant, Unit, and Property interfaces for clarity and type safety
+interface Tenant {
+  tenant_id: number;
+  full_name: string;
+  unit_id?: number; // Optional, as a tenant might not always be linked to a unit via lease in this direct query
+  property_id?: number; // Optional, same reason
+  property_name?: string; // Added for display in dropdown
+  unit_number?: string; // Added for display in dropdown
+}
+
+interface Unit {
+  unit_id: number;
+  unit_number: string;
+  property_id: number;
+}
+
+interface Property {
+  property_id: number;
+  name: string;
+}
 
 // Initial form state for adding/editing payments
 export const initialPaymentFormState: Omit<Payment, 'payment_id'> = {
@@ -9,18 +30,18 @@ export const initialPaymentFormState: Omit<Payment, 'payment_id'> = {
   unit_id: 0,
   property_id: 0,
   amount_paid: 0,
-  payment_date: new Date().toISOString().split('T')[0],
+  payment_date: new Date().toISOString().split('T')[0], // Default to today
   due_date: '',
   payment_status: 'Pending',
   payment_method: 'Bank Transfer',
   payment_category: 'Rent',
-  payment_month: '', // Added to match Payment interface
+  payment_month: '',
   receipt_number: undefined,
   transaction_reference: undefined,
   remarks: undefined,
   created_at: undefined,
   updated_at: undefined,
-  tenant_name: undefined,
+  tenant_name: undefined, // These are for display, not directly stored in DB for Payments
   unit_number: undefined,
   property_name: undefined,
 };
@@ -42,22 +63,13 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
   const [formData, setFormData] = useState<
     Omit<Payment, 'payment_id'> | Payment
   >(initialData || initialPaymentFormState);
-  const [tenants, setTenants] = useState<
-    { tenant_id: number; full_name: string }[]
-  >([]);
-  // State to hold all units fetched from the database
-  const [allUnits, setAllUnits] = useState<
-    { unit_id: number; unit_number: string; property_id: number }[]
-  >([]);
-  // State to hold units filtered by selected property
-  const [units, setUnits] = useState<
-    { unit_id: number; unit_number: string; property_id: number }[]
-  >([]);
-  const [properties, setProperties] = useState<
-    { property_id: number; name: string }[]
-  >([]);
+  // Updated type for tenants state to include property and unit info
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [allUnits, setAllUnits] = useState<Unit[]>([]); // All units, regardless of property
+  const [units, setUnits] = useState<Unit[]>([]); // Units filtered by selected property
+  const [properties, setProperties] = useState<Property[]>([]);
 
-  // Update form data when initialData changes (for editing)
+  // Effect to populate form when initialData changes (for editing mode)
   useEffect(() => {
     if (initialData) {
       setFormData({
@@ -75,26 +87,36 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
   useEffect(() => {
     async function fetchData() {
       try {
-        const db = await Database.load('sqlite:productionv3.db');
+        const db = await Database.load('sqlite:productionv6.db');
+
+        // Fetch tenants along with their active unit and property from the 'leases' table
+        // This query is now updated to fetch property_name and unit_number for display
         const dbTenants = await db.select(`
-          SELECT tenant_id, full_name FROM tenants
+          SELECT
+              t.tenant_id,
+              t.full_name,
+              t.unit_id,
+              u.property_id,
+              u.unit_number,  -- Select unit_number
+              p.name AS property_name -- Select property name and alias it
+          FROM tenants t
+          LEFT JOIN units u ON t.unit_id = u.unit_id
+          LEFT JOIN properties p ON u.property_id = p.property_id
         `);
-        // Fetch all units, including property_id
+
+        // Fetch all units
         const dbUnits = await db.select(`
           SELECT unit_id, unit_number, property_id FROM units
         `);
+
+        // Fetch all properties
         const dbProperties = await db.select(`
           SELECT property_id, name FROM properties
         `);
-        setTenants(dbTenants as { tenant_id: number; full_name: string }[]);
-        setAllUnits(
-          dbUnits as {
-            unit_id: number;
-            unit_number: string;
-            property_id: number;
-          }[]
-        );
-        setProperties(dbProperties as { property_id: number; name: string }[]);
+
+        setTenants(dbTenants as Tenant[]); // Use the updated Tenant type
+        setAllUnits(dbUnits as Unit[]);
+        setProperties(dbProperties as Property[]);
       } catch (err) {
         console.error('Error fetching data:', err);
       }
@@ -103,6 +125,8 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
   }, [isOpen]);
 
   // Filter units whenever the selected property changes
+  // This useEffect will react to changes in formData.property_id,
+  // which will be updated either manually or by selecting a tenant.
   useEffect(() => {
     if (formData.property_id) {
       const filtered = allUnits.filter(
@@ -110,7 +134,7 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
       );
       setUnits(filtered);
     } else {
-      setUnits([]); // Clear units if no property is selected
+      setUnits([]); // Clear units if no property is selected or property is reset
     }
   }, [formData.property_id, allUnits]);
 
@@ -123,24 +147,52 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
     setFormData((prevData) => {
       let newData = { ...prevData };
 
-      if (name === 'property_id') {
-        // When property changes, reset unit_id
+      if (name === 'tenant_id') {
+        const selectedTenantId = parseInt(value);
+        // Find the selected tenant from our fetched list
+        const selectedTenant = tenants.find(
+          (t) => t.tenant_id === selectedTenantId
+        );
+
+        if (selectedTenant) {
+          // Automatically set property_id and unit_id based on the selected tenant's associated data
+          newData = {
+            ...newData,
+            tenant_id: selectedTenantId,
+            property_id: selectedTenant.property_id || 0, // Use 0 if not found/null
+            unit_id: selectedTenant.unit_id || 0, // Use 0 if not found/null
+          };
+        } else {
+          // If no tenant selected or no associated data, reset
+          newData = {
+            ...newData,
+            tenant_id: selectedTenantId,
+            property_id: 0,
+            unit_id: 0,
+          };
+        }
+      } else if (name === 'property_id') {
+        // If property is changed manually, reset the unit_id
         newData = {
           ...newData,
           property_id: parseInt(value) || 0,
-          unit_id: 0, // Reset unit_id when property changes
+          unit_id: 0, // Reset unit_id when property changes manually
         };
       } else {
+        // Handle other form fields
         newData = {
           ...newData,
           [name]:
-            name === 'amount_paid' || name === 'tenant_id' || name === 'unit_id'
-              ? parseInt(value) || 0
+            name === 'amount_paid' ||
+            name === 'tenant_id' ||
+            name === 'unit_id' ||
+            name === 'property_id'
+              ? parseInt(value) || 0 // Parse IDs and amount as integers
               : value,
         };
       }
 
-      // Handle payment_month update based on due_date
+      // Handle payment_month update based on due_date (if it's changed)
       if (name === 'due_date' && value) {
         newData = { ...newData, payment_month: value.slice(0, 7) };
       }
@@ -151,7 +203,7 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Ensure payment_month is set even if due_date hasn't changed
+    // Ensure payment_month is set even if due_date hasn't changed manually
     const finalFormData = {
       ...formData,
       payment_month: formData.due_date ? formData.due_date.slice(0, 7) : '',
@@ -192,10 +244,23 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               required
             >
-              <option value="">Select Tenant</option>
+              <option value="">Select Tenant </option>
               {tenants.map((tenant) => (
                 <option key={tenant.tenant_id} value={tenant.tenant_id}>
+                  {/* Display tenant name with property and unit in a bracket */}
                   {tenant.full_name}
+                  {tenant.property_name &&
+                    tenant.unit_number &&
+                    ` (${tenant.property_name} - Unit ${tenant.unit_number})`}
+                  {/* Fallback for cases where property_name/unit_number might be missing, but IDs are present */}
+                  {!tenant.property_name &&
+                    !tenant.unit_number &&
+                    tenant.unit_id &&
+                    ` (Unit ID: ${tenant.unit_id})`}
+                  {!tenant.property_name &&
+                    tenant.property_id &&
+                    !tenant.unit_id &&
+                    ` (Property ID: ${tenant.property_id})`}
                 </option>
               ))}
             </select>
@@ -214,6 +279,7 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
               onChange={handleChange}
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               required
+              disabled
             >
               <option value="">Select Property</option>
               {properties.map((property) => (
@@ -237,8 +303,8 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
               onChange={handleChange}
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               required
-              // Disable if no property is selected
-              disabled={!formData.property_id}
+              // Disable if no property is selected or no units are available for the selected property
+              disabled
             >
               <option value="">Select Unit</option>
               {units.map((unit) => (

@@ -61,7 +61,7 @@ export const TenantFormModal: React.FC<TenantFormModalProps> = ({
   useEffect(() => {
     async function fetchUnits() {
       try {
-        const db = await Database.load('sqlite:productionv3.db');
+        const db = await Database.load('sqlite:productionv6.db');
         const dbUnits = await db.select<
           {
             unit_id: number;
@@ -273,6 +273,7 @@ export const TenantFormModal: React.FC<TenantFormModalProps> = ({
               onChange={handleChange}
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               required
+              max={new Date().toISOString().split('T')[0]} // <--- Add this line
             />
           </div>
 

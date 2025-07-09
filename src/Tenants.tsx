@@ -38,7 +38,7 @@ const TenantsList: React.FC = () => {
   async function fetchTenants() {
     try {
       setLoading(true);
-      const db = await Database.load('sqlite:productionv3.db');
+      const db = await Database.load('sqlite:productionv6.db');
       const dbTenants: any = await db.select(`
         SELECT 
           t.tenant_id, t.full_name, t.email, t.phone_number, t.status,
@@ -60,9 +60,26 @@ const TenantsList: React.FC = () => {
 
   const handleDeleteTenant = async () => {
     if (!selectedTenant) return;
-    const db = await Database.load('sqlite:productionv3.db');
+
+    const db = await Database.load('sqlite:productionv6.db');
     setLoading(true);
+
     try {
+      // 1. Get the unit_id associated with the tenant's active lease
+      // We assume a tenant can only have one active lease at a time for this logic.
+      const result = await db.select(
+        `
+      SELECT unit_id FROM leases WHERE tenant_id = $1 AND status = 'active' LIMIT 1
+    `,
+        [selectedTenant.tenant_id]
+      );
+
+      let unitIdToUpdate: number | null = null;
+      if (result && result.length > 0) {
+        unitIdToUpdate = result[0].unit_id;
+      }
+
+      // 2. Delete the tenant
       await db.execute(`DELETE FROM tenants WHERE tenant_id = $1`, [
         selectedTenant.tenant_id,
       ]);
@@ -70,12 +87,46 @@ const TenantsList: React.FC = () => {
         'Tenant deleted successfully from SQLite:',
         selectedTenant.tenant_id
       );
+
+      // 3. If a unit_id was found, update the unit status to 'available'
+      if (unitIdToUpdate !== null) {
+        await db.execute(
+          `
+        UPDATE units
+        SET status = 'available'
+        WHERE unit_id = $1
+      `,
+          [unitIdToUpdate]
+        );
+        console.log(`Unit ${unitIdToUpdate} status updated to 'available'.`);
+      }
+
+      // 4. Optionally, you might want to mark the lease as 'ended' or delete it as well.
+      // This depends on your business logic. For now, we'll assume deleting the tenant
+      // also logically severs the lease relationship.
+      // If you prefer to update the lease status:
+      await db.execute(
+        `
+      UPDATE leases
+      SET status = 'ended', end_date = $1
+      WHERE tenant_id = $2 AND status = 'active'
+    `,
+        [new Date().toISOString().split('T')[0], selectedTenant.tenant_id]
+      );
+      console.log(
+        `Lease for tenant ${selectedTenant.tenant_id} marked as 'ended'.`
+      );
+
+      // Refresh data and close modal
       fetchTenants();
       setShowDeleteTenantConfirm(false);
       setSelectedTenant(null);
     } catch (err) {
-      console.error('Error deleting tenant from SQLite:', err);
-      setError('Failed to delete tenant.');
+      console.error(
+        'Error deleting tenant or updating unit status from SQLite:',
+        err
+      );
+      setError('Failed to delete tenant and/or update unit status.');
     } finally {
       setLoading(false);
     }
@@ -84,11 +135,19 @@ const TenantsList: React.FC = () => {
   const handleSaveTenant = async (
     tenantData: Omit<Tenant, 'tenant_id'> | Tenant
   ) => {
-    const db = await Database.load('sqlite:productionv3.db');
+    const db = await Database.load('sqlite:productionv6.db');
     setLoading(true);
     try {
       if ('tenant_id' in tenantData && tenantData.tenant_id !== null) {
         // --- Update existing tenant ---
+
+        // Fetch the current tenant data to get the old unit_id
+        const oldTenantData = await db.execute(
+          `SELECT unit_id FROM tenants WHERE tenant_id = $1`,
+          [tenantData.tenant_id]
+        );
+        const oldUnitId = oldTenantData.rows?.[0]?.unit_id;
+
         await db.execute(
           `UPDATE tenants SET full_name = $1, email = $2, phone_number = $3, status = $4, unit_id = $5, rent_amount = $6, lease_start_date = $7 WHERE tenant_id = $8`,
           [
@@ -116,11 +175,25 @@ const TenantsList: React.FC = () => {
           console.log(
             `Unit ${tenantData.unit_id} status updated to 'Occupied'.`
           );
-        } else {
-          // Optional: If tenant was previously assigned a unit and now unassigned,
-          // you might want to set the previous unit's status back to 'Available' or 'Vacant'.
-          // This requires fetching the old unit_id before the update.
-          // For simplicity, I'm omitting this unless you specifically need it.
+        }
+
+        // --- Handle old unit status if the tenant was reassigned from a unit ---
+        // If the tenant had an old unit and is now assigned to a different one (or unassigned)
+        if (oldUnitId && oldUnitId !== tenantData.unit_id) {
+          // Check if the old unit is now truly vacant (no other tenant assigned to it)
+          const tenantsInOldUnit = await db.execute(
+            `SELECT COUNT(*) as count FROM tenants WHERE unit_id = $1`,
+            [oldUnitId]
+          );
+          if (tenantsInOldUnit.rows?.[0]?.count === 0) {
+            await db.execute(
+              `UPDATE units SET unit_status = 'Available' WHERE unit_id = $1`,
+              [oldUnitId]
+            );
+            console.log(
+              `Old Unit ${oldUnitId} status updated to 'Available' as it is now vacant.`
+            );
+          }
         }
       } else {
         // --- Add new tenant ---
@@ -162,7 +235,7 @@ const TenantsList: React.FC = () => {
       setError('Failed to save tenant. Please ensure the unit ID is valid.');
     } finally {
       setLoading(false);
-      //   if (db) await db.close(); // Ensure the database connection is closed
+      // 	if (db) await db.close(); // Ensure the database connection is closed
     }
   };
 
@@ -329,10 +402,6 @@ const TenantsList: React.FC = () => {
                   <p>
                     <span className="font-medium text-gray-800">Phone:</span>{' '}
                     {tenant.phone_number}
-                  </p>
-                  <p>
-                    <span className="font-medium text-gray-800">Rent:</span> $
-                    {tenant.rent_amount.toLocaleString()}/month
                   </p>
                 </div>
               </div>

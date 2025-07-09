@@ -2,14 +2,15 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Search, Plus, Eye, Edit, Trash2, Download } from 'lucide-react';
 import Database from '@tauri-apps/plugin-sql';
 import { PaymentFormModal } from './PaymentFormModal';
+import { differenceInMonths, endOfMonth, startOfMonth } from 'date-fns';
 import { DeleteConfirmationModal } from './DeleteConfirmationModal';
 
 export interface Payment {
   payment_id: string;
-  tenant_id: number; // Updated to INTEGER from TEXT
-  unit_id: any; // Updated to INTEGER from TEXT
-  property_id: number; // Updated to INTEGER from TEXT
-  payment_month: string; // New field for payment month
+  tenant_id: number;
+  unit_id: number | null; // Improved type from any
+  property_id: number;
+  payment_month: string;
   amount_paid: number;
   payment_date: string;
   due_date: string;
@@ -27,9 +28,9 @@ export interface Payment {
   remarks?: string;
   created_at?: string;
   updated_at?: string;
-  tenant_name?: string; // Derived from tenants table
-  unit_number?: string; // Derived from units table
-  property_name?: string; // Derived from properties table
+  tenant_name?: string;
+  unit_number?: string;
+  property_name?: string;
 }
 
 export interface Tenant {
@@ -41,7 +42,7 @@ export interface Tenant {
   lease_start_date: string;
   rent_amount: number;
   deposit_amount: number;
-  unit_id: number | null; // Nullable foreign key to units
+  unit_id: number | null;
   status: 'active' | 'Moving Out' | 'Inactive';
   created_at?: string;
   updated_at?: string;
@@ -63,11 +64,12 @@ export interface Property {
 interface ArrearsReport {
   tenant_id: number;
   tenant_name: string;
-  unit_number: any;
+  unit_number: string;
   expected_amount: number;
   total_paid: number;
   balance: number;
   status: 'Arrears' | 'Overpaid' | 'Current';
+  months_counted: number; // New field for number of months
 }
 
 const PropertyManagementDashboard: React.FC = () => {
@@ -76,13 +78,12 @@ const PropertyManagementDashboard: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [tenants, setTenants] = useState<any[]>([]);
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterMonth, setFilterMonth] = useState('');
   const [activeTab, setActiveTab] = useState<'payments' | 'arrears'>(
     'payments'
   );
-
   const [showAddEditModal, setShowAddEditModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
@@ -92,55 +93,97 @@ const PropertyManagementDashboard: React.FC = () => {
   async function fetchPayments() {
     try {
       setLoading(true);
-      const db = await Database.load('sqlite:productionv3.db');
-      const dbPayments = await db.select(`
-  SELECT 
-    p.payment_id, p.tenant_id, p.unit_id, p.property_id, p.amount_paid,
-    p.payment_date, p.due_date, p.payment_status, p.payment_method, p.payment_category,
-    p.payment_month, p.receipt_number, p.transaction_reference, p.remarks, p.created_at, p.updated_at,
-    t.full_name AS tenant_name, u.unit_number, pr.name AS property_name
-  FROM payments p
-  LEFT JOIN tenants t ON p.tenant_id = t.tenant_id
-  LEFT JOIN units u ON p.unit_id = u.unit_id
-  LEFT JOIN properties pr ON p.property_id = pr.property_id
-`);
-      setError('');
+      const db = await Database.load('sqlite:productionv6.db');
+      const dbPayments = await db.select(
+        `
+        SELECT 
+          p.payment_id, p.tenant_id, p.unit_id, p.property_id, p.amount_paid,
+          p.payment_date, p.due_date, p.payment_status, p.payment_method, p.payment_category,
+          p.payment_month, p.receipt_number, p.transaction_reference, p.remarks, p.created_at, p.updated_at,
+          t.full_name AS tenant_name, u.unit_number, pr.name AS property_name
+        FROM payments p
+        LEFT JOIN tenants t ON p.tenant_id = t.tenant_id
+        LEFT JOIN units u ON p.unit_id = u.unit_id
+        LEFT JOIN properties pr ON p.property_id = pr.property_id  
+      `
+      );
+      setError(null);
       setPayments(dbPayments as Payment[]);
 
-      const dbTenants = await db.select('SELECT * FROM tenants');
-      setTenants(dbTenants as Tenant[]);
+      const dbTenants = await db.select(`
+  SELECT t.*, u.unit_id as unit_id, u.monthly_rent AS unit_rent_amount
+  FROM tenants t
+  LEFT JOIN units u ON t.unit_id = u.unit_id
+`);
 
-      console.log('Tenants', tenants.length);
-    } catch (err) {
+      setTenants(dbTenants as any[]);
+
+      // console.log('Tenants RELA', tenants);
+    } catch (err: unknown) {
       console.error('Error fetching payments:', err);
       setError('Failed to get payments - check console');
     } finally {
       setLoading(false);
     }
   }
+
+  const getCurrentDate = (): Date => {
+    return new Date();
+  };
+
   async function calculateArrearsReport(
-    month: string
+    month?: string
   ): Promise<ArrearsReport[]> {
     try {
-      const db = await Database.load('sqlite:productionv3.db');
+      const db = await Database.load('sqlite:productionv6.db');
       const tenantsData = await db.select(`
-      SELECT t.tenant_id, t.full_name, t.rent_amount, t.lease_start_date, u.unit_number
-      FROM tenants t
-      LEFT JOIN units u ON t.unit_id = u.unit_id
-      WHERE t.status = 'active'
-    `);
+  SELECT t.tenant_id, t.full_name, t.rent_amount, t.lease_start_date, u.unit_number
+  FROM tenants t
+  LEFT JOIN units u ON t.unit_id = u.unit_id
+  
+`);
       const arrearsReport: ArrearsReport[] = [];
-      for (const tenant of tenantsData as Tenant[]) {
-        const paymentsForMonth: any = await db.select(
+
+      for (const tenant of tenants as any[]) {
+        const leaseStartDate = new Date(tenant.lease_start_date);
+        const endDate = month ? new Date(`${month}-01`) : getCurrentDate();
+
+        if (isNaN(leaseStartDate.getTime())) {
+          continue;
+        }
+
+        console.log('tenanr.........', tenant);
+
+        const monthsCounted =
+          differenceInMonths(
+            endOfMonth(endDate),
+            startOfMonth(leaseStartDate)
+          ) + 1;
+
+        console.log('Tenant rent amout', tenant);
+        const rentAmount: any = await db.select(
+          `SELECT monthly_rent from units WHERE unit_id = $1`,
+          [tenant.unit_id]
+        );
+        console.log('Rent amount', rentAmount[0].monthly_rent);
+
+        const totalExpected = monthsCounted * rentAmount[0].monthly_rent;
+
+        const paymentsForTenant = await db.select(
           `
   SELECT SUM(amount_paid) as total_paid
   FROM payments
-  WHERE tenant_id = $1 AND payment_month = $2 AND payment_category = 'Rent'
-`,
-          [tenant.tenant_id, month]
+  WHERE tenant_id = $1 AND payment_category = 'Rent' AND payment_date >= $2 AND payment_date <= $3
+  `,
+          [
+            tenant.tenant_id,
+            tenant.lease_start_date,
+            month ? `${month}-31` : getCurrentDate().toISOString().slice(0, 10),
+          ]
         );
-        const totalPaid = paymentsForMonth[0]?.total_paid || 0;
-        const balance = tenant.rent_amount - totalPaid;
+
+        const totalPaid = paymentsForTenant[0]?.total_paid || 0;
+        const balance = totalExpected - totalPaid;
 
         let status: 'Arrears' | 'Overpaid' | 'Current';
         if (balance > 0) {
@@ -150,18 +193,20 @@ const PropertyManagementDashboard: React.FC = () => {
         } else {
           status = 'Current';
         }
+
         arrearsReport.push({
           tenant_id: tenant.tenant_id,
           tenant_name: tenant.full_name,
-          unit_number: tenant.unit_id || 'N/A',
-          expected_amount: tenant.rent_amount,
+          unit_number: tenant.unit_number || 'N/A',
+          expected_amount: totalExpected,
           total_paid: totalPaid,
           balance,
           status,
+          months_counted: monthsCounted,
         });
       }
       return arrearsReport;
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error calculating arrears report:', err);
       setError('Failed to generate arrears report');
       return [];
@@ -200,6 +245,9 @@ const PropertyManagementDashboard: React.FC = () => {
                 Unit
               </th>
               <th className="text-left py-3 px-6 font-semibold text-gray-900">
+                Months
+              </th>
+              <th className="text-left py-3 px-6 font-semibold text-gray-900">
                 Expected Amount
               </th>
               <th className="text-left py-3 px-6 font-semibold text-gray-900">
@@ -221,6 +269,7 @@ const PropertyManagementDashboard: React.FC = () => {
               >
                 <td className="py-4 px-6">{report.tenant_name}</td>
                 <td className="py-4 px-6">{report.unit_number}</td>
+                <td className="py-4 px-6">{report.months_counted}</td>
                 <td className="py-4 px-6">
                   KES.{report.expected_amount.toLocaleString()}
                 </td>
@@ -251,10 +300,17 @@ const PropertyManagementDashboard: React.FC = () => {
           <button
             onClick={() => {
               const csv = [
-                'Tenant,Unit,Expected Amount,Total Paid,Balance,Status',
+                'Tenant,Unit,Months,Expected Amount,Total Paid,Balance,Status',
                 ...arrearsData.map(
                   (r) =>
-                    `${r.tenant_name},${r.unit_number},${r.expected_amount},${r.total_paid},${r.balance},${r.status}`
+                    `"${r.tenant_name.replace(
+                      /"/g,
+                      '""'
+                    )}","${r.unit_number.replace(/"/g, '""')}",${
+                      r.months_counted
+                    },${r.expected_amount},${r.total_paid},${r.balance},${
+                      r.status
+                    }`
                 ),
               ].join('\n');
               const blob = new Blob([csv], { type: 'text/csv' });
@@ -275,22 +331,22 @@ const PropertyManagementDashboard: React.FC = () => {
   };
   async function generateMonthlyReport(month: string) {
     try {
-      const db = await Database.load('sqlite:productionv3.db');
+      const db = await Database.load('sqlite:productionv6.db');
       const reportData = await db.select(
         `
-      SELECT 
-        p.payment_id, p.tenant_id, p.unit_id, p.amount_paid, p.payment_date,
-        p.due_date, p.payment_status, p.payment_method, p.payment_category,
-        p.payment_month, t.full_name AS tenant_name, u.unit_number
-      FROM payments p
-      LEFT JOIN tenants t ON p.tenant_id = t.tenant_id
-      LEFT JOIN units u ON p.unit_id = u.unit_id
-      WHERE p.payment_month = $1
-    `,
+        SELECT 
+          p.payment_id, p.tenant_id, p.unit_id, p.amount_paid, p.payment_date,
+          p.due_date, p.payment_status, p.payment_method, p.payment_category,
+          p.payment_month, t.full_name AS tenant_name, u.unit_number
+        FROM payments p
+        LEFT JOIN tenants t ON p.tenant_id = t.tenant_id
+        LEFT JOIN units u ON p.unit_id = u.unit_id
+        WHERE p.payment_month = $1
+        `,
         [month]
       );
       return reportData as Payment[];
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error generating report:', err);
       setError('Failed to generate report');
       return [];
@@ -303,7 +359,7 @@ const PropertyManagementDashboard: React.FC = () => {
       return;
     }
     setLoading(true);
-    const db = await Database.load('sqlite:productionv3.db');
+    const db = await Database.load('sqlite:productionv6.db');
     try {
       await db.execute(`DELETE FROM payments WHERE payment_id = $1`, [
         selectedPayment.payment_id,
@@ -312,7 +368,7 @@ const PropertyManagementDashboard: React.FC = () => {
       fetchPayments();
       setShowDeleteConfirm(false);
       setSelectedPayment(null);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error deleting payment:', err);
       setError('Failed to delete payment.');
     } finally {
@@ -323,23 +379,23 @@ const PropertyManagementDashboard: React.FC = () => {
   const handleSavePayment = async (
     paymentData: Omit<Payment, 'payment_id'> | Payment
   ) => {
-    const db = await Database.load('sqlite:productionv3.db');
+    const db = await Database.load('sqlite:productionv6.db');
     setLoading(true);
     const paymentMonth = paymentData.due_date.slice(0, 7);
     const status =
       paymentData.payment_date > paymentData.due_date
         ? 'Overdue'
-        : paymentData.payment_date < paymentData.due_date
+        : paymentData.payment_date <= paymentData.due_date
         ? 'Paid'
         : 'Pending';
 
     try {
-      if ('payment_id' in paymentData && paymentData.payment_id !== null) {
+      if ('payment_id' in paymentData && paymentData.payment_id) {
         await db.execute(
           `UPDATE payments SET tenant_id = $1, unit_id = $2, property_id = $3, amount_paid = $4,
-         payment_date = $5, due_date = $6, payment_status = $7, payment_method = $8,
-         payment_category = $9, receipt_number = $10, transaction_reference = $11, remarks = $12, payment_month = $13,
-         updated_at = CURRENT_TIMESTAMP WHERE payment_id = $14`,
+           payment_date = $5, due_date = $6, payment_status = $7, payment_method = $8,
+           payment_category = $9, receipt_number = $10, transaction_reference = $11, remarks = $12, payment_month = $13,
+           updated_at = CURRENT_TIMESTAMP WHERE payment_id = $14`,
           [
             paymentData.tenant_id,
             paymentData.unit_id,
@@ -361,10 +417,10 @@ const PropertyManagementDashboard: React.FC = () => {
       } else {
         await db.execute(
           `INSERT INTO payments (
-          payment_id, tenant_id, unit_id, property_id, amount_paid,
-          payment_date, due_date, payment_status, payment_method, payment_category,
-          payment_month, receipt_number, transaction_reference, remarks, created_at, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+            payment_id, tenant_id, unit_id, property_id, amount_paid,
+            payment_date, due_date, payment_status, payment_method, payment_category,
+            payment_month, receipt_number, transaction_reference, remarks, created_at, updated_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
           [
             `PAY${Date.now()}-${Math.floor(Math.random() * 1000)}`,
             paymentData.tenant_id,
@@ -387,7 +443,7 @@ const PropertyManagementDashboard: React.FC = () => {
       fetchPayments();
       setShowAddEditModal(false);
       setSelectedPayment(null);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error saving payment:', err);
       setError('Failed to save payment.');
     } finally {
@@ -403,7 +459,11 @@ const PropertyManagementDashboard: React.FC = () => {
       'Tenant,Unit,Amount,Payment Date,Due Date,Status,Method,Category',
       ...reportData.map(
         (p) =>
-          `${p.tenant_name},${p.unit_number},${p.amount_paid},${p.payment_date},${p.due_date},${p.payment_status},${p.payment_method},${p.payment_category}`
+          `"${p.tenant_name?.replace(/"/g, '""') || 'N/A'}","${
+            p.unit_number?.replace(/"/g, '""') || 'N/A'
+          }",${p.amount_paid},${p.payment_date},${p.due_date},${
+            p.payment_status
+          },${p.payment_method},${p.payment_category}`
       ),
     ].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv' });
@@ -414,12 +474,16 @@ const PropertyManagementDashboard: React.FC = () => {
     a.click();
     URL.revokeObjectURL(url);
   };
+
   useEffect(() => {
     fetchPayments();
-    calculateArrearsReport('2025-07').then((data) =>
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    setFilterMonth(currentMonth);
+    calculateArrearsReport(currentMonth).then((data) =>
       console.log('Tenants:', data)
     );
   }, []);
+
   const filteredPayments = useMemo(() => {
     return payments
       .filter((payment) => {
@@ -442,7 +506,7 @@ const PropertyManagementDashboard: React.FC = () => {
           filterCategory === 'all' ||
           payment.payment_category.toLowerCase() ===
             filterCategory.toLowerCase();
-        const matchesMethod =
+        const matchesMethod = // Fixed incorrect filterStatus reference
           filterStatus === 'all' ||
           payment.payment_method.toLowerCase() === filterStatus.toLowerCase();
         return (
@@ -508,9 +572,11 @@ const PropertyManagementDashboard: React.FC = () => {
               <tbody>
                 {reportData.map((p) => (
                   <tr key={p.payment_id}>
-                    <td className="py-2 px-4">{p.tenant_name}</td>
-                    <td className="py-2 px-4">{p.unit_number}</td>
-                    <td className="py-2 px-4">KES.{p.amount_paid}</td>
+                    <td className="py-2 px-4">{p.tenant_name || 'N/A'}</td>
+                    <td className="py-2 px-4">{p.unit_number || 'N/A'}</td>
+                    <td className="py-2 px-4">
+                      KES.{p.amount_paid.toLocaleString()}
+                    </td>
                     <td className="py-2 px-4">{p.payment_status}</td>
                     <td className="py-2 px-4">{p.payment_category}</td>
                   </tr>
@@ -524,7 +590,6 @@ const PropertyManagementDashboard: React.FC = () => {
               >
                 Close
               </button>
-
               <button
                 onClick={handleDownloadReport}
                 className="px-4 py-2 bg-blue-600 text-white rounded flex items-center gap-2"
@@ -538,7 +603,7 @@ const PropertyManagementDashboard: React.FC = () => {
     );
   };
 
-  const isUnitPaid = (unit_id: number, month: string) => {
+  const isUnitPaid = (unit_id: number | null, month: string) => {
     const unitPayments = payments.filter(
       (p) =>
         p.unit_id === unit_id &&
@@ -551,7 +616,7 @@ const PropertyManagementDashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <main className=" mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-6">
           <div className="border-b border-gray-200">
             <nav className="-mb-px flex space-x-8">
@@ -604,7 +669,6 @@ const PropertyManagementDashboard: React.FC = () => {
                     size={18}
                   />
                 </div>
-
                 <select
                   className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   value={filterStatus}
@@ -626,14 +690,21 @@ const PropertyManagementDashboard: React.FC = () => {
                   <option value="utilities">Utilities</option>
                   <option value="other">Other</option>
                 </select>
-
                 <button
                   onClick={() => {
                     const csv = [
                       'Tenant,Unit,Property,Amount,Month,Due Date,Status,Category,Method',
                       ...payments.map(
                         (p) =>
-                          `${p.tenant_name},${p.unit_number},${p.property_name},${p.amount_paid},${p.payment_month},${p.due_date},${p.payment_status},${p.payment_category},${p.payment_method}`
+                          `"${p.tenant_name?.replace(/"/g, '""') || 'N/A'}","${
+                            p.unit_number?.replace(/"/g, '""') || 'N/A'
+                          }","${
+                            p.property_name?.replace(/"/g, '""') || 'N/A'
+                          }",${p.amount_paid},${p.payment_month},${
+                            p.due_date
+                          },${p.payment_status},${p.payment_category},${
+                            p.payment_method
+                          }`
                       ),
                     ].join('\n');
                     const blob = new Blob([csv], { type: 'text/csv' });
@@ -642,6 +713,7 @@ const PropertyManagementDashboard: React.FC = () => {
                     a.href = url;
                     a.download = 'all_payments.csv';
                     a.click();
+                    URL.revokeObjectURL(url);
                   }}
                   className="px-4 py-2 bg-blue-600 text-white rounded"
                 >
@@ -660,13 +732,11 @@ const PropertyManagementDashboard: React.FC = () => {
                   }}
                   className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
-                  <Plus className="w-4 h-4" />
-                  Add Payment
+                  <Plus className="w-4 h-4" /> Add Payment
                 </button>
               </div>
             </div>
           )}
-
           {activeTab === 'payments' ? (
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
               <div className="overflow-x-auto">
@@ -688,11 +758,9 @@ const PropertyManagementDashboard: React.FC = () => {
                       <th className="text-left py-3 px-6 font-semibold text-gray-900">
                         Unit
                       </th>
-
                       <th className="text-left py-3 px-6 font-semibold text-gray-900">
                         Category
                       </th>
-
                       <th className="text-left py-3 px-6 font-semibold text-gray-900">
                         Due Date
                       </th>
@@ -745,9 +813,9 @@ const PropertyManagementDashboard: React.FC = () => {
                         <td className="py-4 px-6 text-gray-900">
                           {payment.due_date}
                         </td>
-                        {isUnitPaid(payment.unit_id, payment.payment_month)
-                          ? 'Paid'
-                          : 'Unpaid'}
+                        <td className="py-4 px-6 text-gray-900">
+                          {isUnitPaid(payment.unit_id, payment.payment_month)}
+                        </td>
                         <td className="py-4 px-6 text-gray-900">
                           {payment.payment_method || '-'}
                         </td>
@@ -770,7 +838,7 @@ const PropertyManagementDashboard: React.FC = () => {
                                 setSelectedPayment(payment);
                                 setShowDeleteConfirm(true);
                               }}
-                              className="p-1 text-red-600 hover:text-red-800 transition-colors"
+                              className="p-1 text-green-600 hover:text-red-700 transition-colors"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -789,14 +857,12 @@ const PropertyManagementDashboard: React.FC = () => {
           )}
         </div>
       </main>
-
       <PaymentFormModal
         isOpen={showAddEditModal}
         onClose={() => setShowAddEditModal(false)}
         onSave={handleSavePayment}
         initialData={selectedPayment}
       />
-
       <DeleteConfirmationModal
         isOpen={showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(false)}

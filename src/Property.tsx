@@ -88,7 +88,7 @@ const PropertiesPage = () => {
       let db;
       try {
         setLoading(true);
-        db = await Database.load('sqlite:productionv3.db');
+        db = await Database.load('sqlite:productionv6.db');
         const dbProperties = await db.select<Property[]>(
           `SELECT property_id, name, address, total_units, property_type, status, last_inspection, manager_id, created_at, updated_at FROM properties`
         );
@@ -105,7 +105,7 @@ const PropertiesPage = () => {
         console.error('Error fetching properties:', err);
         console.log('Error details:', error);
         console.log('Loading', loading);
-        setError('Failed to get properties - check console');
+        //   setError('Failed to get properties - check console');
       } finally {
         setLoading(false);
         if (db) await db.close();
@@ -115,7 +115,7 @@ const PropertiesPage = () => {
       let db;
       try {
         setLoading(true);
-        db = await Database.load('sqlite:productionv3.db');
+        db = await Database.load('sqlite:productionv6.db');
         const dbManagers = await db.select<Manager[]>(
           `SELECT manager_id, name FROM managers`
         );
@@ -156,20 +156,36 @@ const PropertiesPage = () => {
     });
   }, [searchTerm, selectedStatus, selectedType, properties]);
 
-  // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); // Prevent page reload
     let db;
     try {
-      db = await Database.load('sqlite:productionv3.db');
+      db = await Database.load('sqlite:productionv6.db');
       setLoading(true);
+
+      // Check for duplicate property name
+      const existingProperties = await db.select<{ property_id: number }[]>(
+        `SELECT property_id FROM properties WHERE name = $1 ${
+          editMode ? 'AND property_id != $2' : ''
+        }`,
+        editMode
+          ? [formData.name.trim(), editingPropertyId]
+          : [formData.name.trim()]
+      );
+
+      if (existingProperties.length > 0) {
+        setError(
+          `A property named "${formData.name}" already exists. Please use a unique name.`
+        );
+        return;
+      }
 
       if (editMode) {
         await db.execute(
           `UPDATE properties SET name = $1, address = $2, total_units = $3, property_type = $4, status = $5, last_inspection = $6, manager_id = $7, updated_at = $8 WHERE property_id = $9`,
           [
-            formData.name,
-            formData.address,
+            formData.name.trim(),
+            formData.address.trim(),
             formData.total_units,
             formData.property_type,
             formData.status,
@@ -184,8 +200,8 @@ const PropertiesPage = () => {
         await db.execute(
           `INSERT INTO properties (name, address, total_units, property_type, status, last_inspection, manager_id, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
           [
-            formData.name,
-            formData.address,
+            formData.name.trim(),
+            formData.address.trim(),
             formData.total_units,
             formData.property_type,
             formData.status,
@@ -306,9 +322,9 @@ const PropertiesPage = () => {
     }
   };
 
-  // Handle delete property
   const handleDeleteProperty = (id: number) => {
     setDeletingPropertyId(id);
+
     setDeleteMode(true);
   };
 
@@ -316,7 +332,7 @@ const PropertiesPage = () => {
   const handleConfirmDelete = async () => {
     let db;
     try {
-      db = await Database.load('sqlite:productionv3.db');
+      db = await Database.load('sqlite:productionv6.db');
       setLoading(true);
       await db.execute(`DELETE FROM properties WHERE property_id = $1`, [
         deletingPropertyId,
@@ -675,6 +691,7 @@ const PropertiesPage = () => {
             <h2 className="text-xl font-bold mb-4">
               {editMode ? 'Edit Property' : 'Add Property'}
             </h2>
+            {error && <div className="text-red-500">{error}</div>}
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label
