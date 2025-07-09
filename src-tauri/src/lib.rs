@@ -378,7 +378,7 @@ pub fn run() {
         .plugin(tauri_plugin_sql::Builder::new().build())
         .plugin(
             SqlBuilder::default() // Use our aliased Builder
-                .add_migrations("sqlite:productionv2.db", migrations) // 'test4.db' is our database file
+                .add_migrations("sqlite:productionv3.db", migrations) // 'test4.db' is our database file
                 .build(),
         )
         .plugin(tauri_plugin_opener::init())

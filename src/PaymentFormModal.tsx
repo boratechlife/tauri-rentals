@@ -45,8 +45,13 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
   const [tenants, setTenants] = useState<
     { tenant_id: number; full_name: string }[]
   >([]);
+  // State to hold all units fetched from the database
+  const [allUnits, setAllUnits] = useState<
+    { unit_id: number; unit_number: string; property_id: number }[]
+  >([]);
+  // State to hold units filtered by selected property
   const [units, setUnits] = useState<
-    { unit_id: number; unit_number: string }[]
+    { unit_id: number; unit_number: string; property_id: number }[]
   >([]);
   const [properties, setProperties] = useState<
     { property_id: number; name: string }[]
@@ -66,22 +71,29 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
     }
   }, [initialData]);
 
-  // Fetch tenants, units, and properties for dropdowns
+  // Fetch tenants, all units, and properties for dropdowns
   useEffect(() => {
     async function fetchData() {
       try {
-        const db = await Database.load('sqlite:productionv2.db');
+        const db = await Database.load('sqlite:productionv3.db');
         const dbTenants = await db.select(`
           SELECT tenant_id, full_name FROM tenants
         `);
+        // Fetch all units, including property_id
         const dbUnits = await db.select(`
-          SELECT unit_id, unit_number FROM units
+          SELECT unit_id, unit_number, property_id FROM units
         `);
         const dbProperties = await db.select(`
           SELECT property_id, name FROM properties
         `);
         setTenants(dbTenants as { tenant_id: number; full_name: string }[]);
-        setUnits(dbUnits as { unit_id: number; unit_number: string }[]);
+        setAllUnits(
+          dbUnits as {
+            unit_id: number;
+            unit_number: string;
+            property_id: number;
+          }[]
+        );
         setProperties(dbProperties as { property_id: number; name: string }[]);
       } catch (err) {
         console.error('Error fetching data:', err);
@@ -90,27 +102,51 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
     if (isOpen) fetchData();
   }, [isOpen]);
 
+  // Filter units whenever the selected property changes
+  useEffect(() => {
+    if (formData.property_id) {
+      const filtered = allUnits.filter(
+        (unit) => unit.property_id === formData.property_id
+      );
+      setUnits(filtered);
+    } else {
+      setUnits([]); // Clear units if no property is selected
+    }
+  }, [formData.property_id, allUnits]);
+
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
     >
   ) => {
     const { name, value } = e.target;
-    setFormData((prevData) => ({
-      ...prevData,
-      [name]:
-        name === 'amount_paid' ||
-        name === 'tenant_id' ||
-        name === 'unit_id' ||
-        name === 'property_id'
-          ? parseInt(value) || 0
-          : name === 'due_date'
-          ? value
-          : value,
-      ...(name === 'due_date' && value
-        ? { payment_month: value.slice(0, 7) }
-        : {}),
-    }));
+    setFormData((prevData) => {
+      let newData = { ...prevData };
+
+      if (name === 'property_id') {
+        // When property changes, reset unit_id
+        newData = {
+          ...newData,
+          property_id: parseInt(value) || 0,
+          unit_id: 0, // Reset unit_id when property changes
+        };
+      } else {
+        newData = {
+          ...newData,
+          [name]:
+            name === 'amount_paid' || name === 'tenant_id' || name === 'unit_id'
+              ? parseInt(value) || 0
+              : value,
+        };
+      }
+
+      // Handle payment_month update based on due_date
+      if (name === 'due_date' && value) {
+        newData = { ...newData, payment_month: value.slice(0, 7) };
+      }
+
+      return newData;
+    });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -201,6 +237,8 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
               onChange={handleChange}
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               required
+              // Disable if no property is selected
+              disabled={!formData.property_id}
             >
               <option value="">Select Unit</option>
               {units.map((unit) => (

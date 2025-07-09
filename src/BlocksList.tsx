@@ -31,7 +31,7 @@ const BlocksList: React.FC = () => {
   async function fetchBlocks() {
     try {
       setLoading(true);
-      const db = await Database.load('sqlite:productionv2.db');
+      const db = await Database.load('sqlite:productionv3.db');
       const dbBlocks = await db.select<Block[]>(
         `SELECT b.block_id, b.block_name, b.property_id, b.floor_count, b.notes, p.name AS property_name
          FROM blocks b
@@ -49,7 +49,7 @@ const BlocksList: React.FC = () => {
 
   async function fetchProperties() {
     try {
-      const db = await Database.load('sqlite:productionv2.db');
+      const db = await Database.load('sqlite:productionv3.db');
       const dbProperties = await db.select<Property[]>(
         'SELECT property_id, name FROM properties'
       );
@@ -127,7 +127,7 @@ const BlocksList: React.FC = () => {
   const handleSaveBlock = async (
     blockData: Omit<Block, 'block_id' | 'property_name'> | Block
   ) => {
-    const db = await Database.load('sqlite:productionv2.db');
+    const db = await Database.load('sqlite:productionv3.db');
     setLoading(true);
     try {
       if ('block_id' in blockData && blockData.block_id !== null) {
@@ -166,7 +166,7 @@ const BlocksList: React.FC = () => {
   };
   const handleDeleteBlock = async () => {
     if (!selectedBlock || !selectedBlock.block_id) return;
-    const db = await Database.load('sqlite:productionv2.db');
+    const db = await Database.load('sqlite:productionv3.db');
     setLoading(true);
     try {
       await db.execute('DELETE FROM blocks WHERE block_id = $1', [
