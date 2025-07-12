@@ -12,9 +12,10 @@ import {
   Edit,
   Trash2,
 } from 'lucide-react';
+import { NavLink, useNavigate } from 'react-router-dom';
 
 // Define precise Property interface
-interface Property {
+export interface Property {
   property_id: number;
   name: string;
   address: string;
@@ -34,6 +35,7 @@ interface Manager {
 
 const PropertiesPage = () => {
   // State definitions with precise types
+  const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedBlock, setSelectedBlock] = useState('all');
@@ -433,12 +435,14 @@ const PropertiesPage = () => {
               <div>Manager: {manager ? manager.name : 'N/A'}</div>
             </div>
             <div className="flex gap-2">
-              <button
-                className="p-2 rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
-                aria-label="View Property"
-              >
-                <Eye size={16} />
-              </button>
+              <NavLink to={`/property/${property.property_id}`}>
+                <button
+                  className="p-2 rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                  aria-label="View Property"
+                >
+                  <Eye size={16} />
+                </button>
+              </NavLink>
               <button
                 className="p-2 rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
                 onClick={() => handleEditProperty(property.property_id)}
@@ -494,12 +498,15 @@ const PropertiesPage = () => {
             {/* Placeholder for additional stats */}
           </div>
           <div className="flex gap-2">
-            <button
-              className="p-2 rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
-              aria-label="View Property"
-            >
-              <Eye size={16} />
-            </button>
+            <NavLink to={`/property/${property.property_id}`}>
+              <button
+                className="p-2 rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                aria-label="View Property"
+              >
+                <Eye size={16} />
+              </button>
+            </NavLink>
+
             <button
               className="p-2 rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
               onClick={() => handleEditProperty(property.property_id)}

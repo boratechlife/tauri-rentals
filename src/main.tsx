@@ -15,6 +15,7 @@ import Unit from './Units';
 import ManagersList from './ManagersList';
 import BlocksList from './BlocksList';
 import ComplaintsPage from './ComplaintsPage';
+import PropertyDetails from './PropertyDetails';
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
@@ -30,6 +31,7 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
           <Route path="managers" element={<ManagersList />} />
           <Route path="blocks" element={<BlocksList />} />
           <Route path="complaints" element={<ComplaintsPage />} />
+          <Route path="property/:id" element={<PropertyDetails />} />
           {/* Add other routes as needed */}
         </Route>
 
