@@ -1208,8 +1208,8 @@ const Unit = () => {
                     required
                   >
                     <option value="Available">Available</option>
-                    <option value="Occupied">Occupied</option>
-                    <option value="Maintenance">Maintenance</option>
+                    {/* <option value="Occupied">Occupied</option>
+                    <option value="Maintenance">Maintenance</option> */}
                     <option value="Reserved">Reserved</option>
                   </select>
                   {formErrors.unit_status && (
@@ -1243,14 +1243,49 @@ const Unit = () => {
                       required
                     >
                       <option value="">Select Unit Type</option>
-                      <option value="Single">Single</option>
-                      <option value="Bedsitter">Bedsitter</option>
-                      <option value="One Bedroom">One Bedroom</option>
-                      <option value="Two Bedroom">Two Bedroom</option>
-                      <option value="Three Bedroom">Three Bedroom</option>
+
+                      <optgroup label="Residential Units">
+                        <option value="Single Room">Single Room</option>
+                        <option value="Bedsitter">Bedsitter</option>
+                        <option value="Studio">Studio</option>
+                        <option value="1 Bedroom">1 Bedroom</option>
+                        <option value="2 Bedroom">2 Bedroom</option>
+                        <option value="3 Bedroom">3 Bedroom</option>
+                        <option value="4 Bedroom">4 Bedroom</option>
+                        <option value="5 Bedroom">5 Bedroom</option>
+                        <option value="6 Bedroom">6 Bedroom</option>
+                      </optgroup>
+
+                      <optgroup label="House Types">
+                        <option value="Apartment Unit">Apartment Unit</option>
+                        <option value="Maisonette Unit">Maisonette Unit</option>
+                        <option value="Bungalow Unit">Bungalow Unit</option>
+                        <option value="Townhouse Unit">Townhouse Unit</option>
+                        <option value="Serviced Apartment">
+                          Serviced Apartment
+                        </option>
+                      </optgroup>
+
+                      <optgroup label="Shared & Special Use">
+                        <option value="Shared Unit">Shared Unit</option>
+                        <option value="Hostel Room">Hostel Room</option>
+                        <option value="Hotel Room">Hotel Room</option>
+                        <option value="Lodging Unit">Lodging Unit</option>
+                      </optgroup>
+
+                      <optgroup label="Commercial Units">
+                        <option value="Office Unit">Office Unit</option>
+                        <option value="Shop Unit">Shop Unit</option>
+                        <option value="Stall">Stall</option>
+                        <option value="Godown/Warehouse">
+                          Godown/Warehouse
+                        </option>
+                      </optgroup>
+
                       <option value="Other">Other</option>
                     </select>
                   </div>
+
                   {formErrors.unit_type && (
                     <p className="mt-1 text-sm text-red-600">
                       {formErrors.unit_type}

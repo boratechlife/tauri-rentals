@@ -761,8 +761,11 @@ const PropertiesPage = () => {
                   required
                 >
                   <option value="">Select Property Type</option>
-                  <option value="Mixed">Mixed</option>
-                  <option value="Single">Single</option>
+
+                  {/* Residential Types */}
+                  <option value="Bedsitter">Bedsitter</option>
+                  <option value="Single">Single Room</option>
+                  <option value="Studio">Studio</option>
                   <option value="1bedroom">1 Bedroom</option>
                   <option value="2bedroom">2 Bedroom</option>
                   <option value="3bedroom">3 Bedroom</option>
@@ -773,8 +776,43 @@ const PropertiesPage = () => {
                   <option value="8bedroom">8 Bedroom</option>
                   <option value="9bedroom">9 Bedroom</option>
                   <option value="10bedroom">10 Bedroom</option>
+                  <option value="Apartment">Apartment</option>
+                  <option value="Maisonette">Maisonette</option>
+                  <option value="Bungalow">Bungalow</option>
+                  <option value="Townhouse">Townhouse</option>
+
+                  {/* Shared and Mixed */}
+                  <option value="Mixed">Mixed</option>
+                  <option value="Hostel">Hostel</option>
+                  <option value="SharedApartment">Shared Apartment</option>
+
+                  {/* Commercial */}
+                  <option value="Shop">Shop</option>
+                  <option value="Office">Office</option>
+                  <option value="Stall">Stall</option>
+                  <option value="Godown">Godown/Warehouse</option>
+                  <option value="CommercialBuilding">
+                    Commercial Building
+                  </option>
+
+                  {/* Land */}
+                  <option value="Plot">Plot</option>
+                  <option value="AgriculturalLand">Agricultural Land</option>
+                  <option value="CommercialLand">Commercial Land</option>
+                  <option value="ResidentialLand">Residential Land</option>
+
+                  {/* Other */}
+                  <option value="BedsitterApartment">
+                    Bedsitter Apartment
+                  </option>
+                  <option value="ServicedApartment">Serviced Apartment</option>
+                  <option value="HotelRoom">Hotel Room</option>
+                  <option value="Lodging">Lodging</option>
+                  <option value="EventSpace">Event Space</option>
+                  <option value="Warehouse">Warehouse</option>
                 </select>
               </div>
+
               <div>
                 <label
                   htmlFor="status"
