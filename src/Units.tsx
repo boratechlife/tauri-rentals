@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Database from '@tauri-apps/plugin-sql';
 import {
   Home,
@@ -34,9 +34,9 @@ import UpgradeModal from './UpgradeModal';
 
 // Define precise UnitType for database-driven data
 interface UnitType {
-  unit_id: number;
+  unit_id: string;
   unit_number: string;
-  property_id: number;
+  property_id: string;
   property_name: string;
   block_id: string | null;
   floor_number: number | null;
@@ -48,10 +48,33 @@ interface UnitType {
   security_deposit: number | null;
   tenant_id: string | null;
   notes: string | null;
-  tenantInfo: { id: string; name: string } | null;
+  tenantInfo: {
+    id: string;
+    name: string;
+    tenant_phone?: string;
+    tenant_email?: string;
+  } | null;
   photos?: string[];
   amenities?: string[];
   squareFootage?: number;
+  paymentHistory?: PaymentType[];
+  arrears?: ArrearsType;
+}
+
+interface PaymentType {
+  payment_id: number;
+  unit_id: string;
+  tenant_id: string | null;
+  amount: number;
+  payment_date: string;
+  payment_type: string;
+  status: string;
+}
+interface ArrearsType {
+  unit_id: number;
+  tenant_id: string | null;
+  total_arrears: number;
+  last_updated: string;
 }
 
 // Helper function to map amenity strings to Lucide icons
@@ -96,6 +119,7 @@ const Unit = () => {
     tenant_id?: string;
   }>({});
 
+  const [isPaymentLoading, setIsPaymentLoading] = useState(false);
   const [units, setUnits] = useState<UnitType[]>([]);
   const [properties, setProperties] = useState<
     {
@@ -304,20 +328,27 @@ const Unit = () => {
             tenant_id: string | null;
             notes: string | null;
             tenant_name: string | null;
+            tenant_email: string | null;
+            tenant_phone: string | null;
             squareFootage?: number;
             photos?: string[];
             amenities?: string[];
           }[]
         >(`
-          SELECT u.unit_id, u.unit_number, u.property_id, p.name AS property_name, 
-                 u.block_id, u.floor_number, u.unit_status, u.unit_type, 
-                 u.bedroom_count, u.bathroom_count, u.monthly_rent, u.security_deposit, 
-                 u.tenant_id, u.notes, t.full_name AS tenant_name 
-          FROM units u
-          LEFT JOIN properties p ON u.property_id = p.property_id
-          LEFT JOIN tenants t ON u.tenant_id = t.tenant_id
-        `);
+  SELECT u.unit_id, u.unit_number, u.property_id, p.name AS property_name, 
+         u.block_id, u.floor_number, u.unit_status, u.unit_type, 
+         u.bedroom_count, u.bathroom_count, u.monthly_rent, u.security_deposit, 
+          t.tenant_id, u.notes, t.full_name AS tenant_name, t.email AS tenant_email, t.phone_number AS tenant_phone
+  FROM units u
+  LEFT JOIN properties p ON u.property_id = p.property_id
+  LEFT JOIN tenants t ON u.unit_id = t.unit_id
+`);
         console.log('Fetched units from DB:', dbUnits);
+
+        const dbPayments = await db.select<PaymentType[]>(
+          `SELECT payment_id, unit_id, tenant_id, amount_paid AS amount, payment_date, payment_category AS payment_type, payment_status 
+   FROM payments ORDER BY payment_id DESC`
+        );
         const processedUnits = dbUnits.map((unit) => ({
           unit_id: unit.unit_id,
           unit_number: unit.unit_number,
@@ -337,12 +368,19 @@ const Unit = () => {
             ? {
                 id: unit.tenant_id,
                 name: unit.tenant_name || '',
+                tenant_phone: unit.tenant_phone,
+                tenant_email: unit.tenant_email,
               }
             : null,
           photos: unit.photos || [],
           amenities: unit.amenities || [],
           squareFootage: unit.squareFootage,
+          paymentHistory: dbPayments.filter(
+            (p) => parseInt(p.unit_id, 10) === unit.unit_id
+          ),
         }));
+
+        console.log('dbPayments', dbPayments);
         setUnits(processedUnits);
         setFilteredUnits(processedUnits);
       } catch (err) {
@@ -644,9 +682,37 @@ const Unit = () => {
     await handleSaveUnit(newUnitData);
   };
 
-  const handleViewUnit = (unit: UnitType) => {
+  const handleViewUnit = async (unit: UnitType) => {
+    setIsPaymentLoading(true);
     setSelectedUnit(unit);
     setIsViewUnitModalOpen(true);
+    setIsPaymentLoading(false);
+  };
+
+  const getPaymentStatusColor = (status: string) => {
+    switch (status) {
+      case 'Completed':
+        return 'bg-green-100 text-green-800';
+      case 'Pending':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'Failed':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const formatCurrency = (amount: number) => `KES.${amount.toFixed(2)}`;
+
+  const getPaymentTypeIcon = (type: string) => {
+    switch (type.toLowerCase()) {
+      case 'rent':
+        return <DollarSign className="h-4 w-4 text-gray-500" />;
+      case 'deposit':
+        return <Key className="h-4 w-4 text-gray-500" />;
+      default:
+        return <QrCode className="h-4 w-4 text-gray-500" />;
+    }
   };
 
   const handleEditUnit = (unitId: number) => {
@@ -1505,6 +1571,7 @@ const Unit = () => {
               {selectedUnit.unit_number}
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              {/* Unit Image and Summary */}
               <div className="bg-blue-50 p-6 rounded-xl flex flex-col items-center justify-center border border-blue-200 shadow-sm">
                 {selectedUnit.photos && selectedUnit.photos.length > 0 ? (
                   <img
@@ -1539,6 +1606,7 @@ const Unit = () => {
                 </span>
               </div>
 
+              {/* Basic Information */}
               <div className="bg-gray-50 p-6 rounded-xl border border-gray-200 shadow-sm">
                 <h3 className="text-lg font-semibold text-gray-800 mb-3">
                   Basic Information
@@ -1564,17 +1632,18 @@ const Unit = () => {
                 <p className="flex items-center gap-2 text-gray-700 mb-2">
                   <DollarSign className="w-5 h-5 text-gray-500" /> Monthly Rent:{' '}
                   <span className="font-medium">
-                    KES.{selectedUnit.monthly_rent || 0}
+                    {formatCurrency(selectedUnit.monthly_rent || 0)}
                   </span>
                 </p>
                 <p className="flex items-center gap-2 text-gray-700">
                   <Key className="w-5 h-5 text-gray-500" /> Security Deposit:{' '}
                   <span className="font-medium">
-                    KES.{selectedUnit.security_deposit || 0}
+                    {formatCurrency(selectedUnit.security_deposit || 0)}
                   </span>
                 </p>
               </div>
 
+              {/* Tenant Information */}
               <div className="md:col-span-2 bg-gray-50 p-6 rounded-xl border border-gray-200 shadow-sm">
                 <h3 className="text-lg font-semibold text-gray-800 mb-3">
                   Tenant Information
@@ -1587,6 +1656,24 @@ const Unit = () => {
                         {selectedUnit.tenantInfo.name}
                       </span>
                     </p>
+                    <p className="flex items-center gap-2 text-gray-700 mb-2">
+                      <Users className="w-5 h-5 text-gray-500" /> Email:{' '}
+                      <a
+                        href={`mailto:${selectedUnit.tenantInfo.tenant_email}`}
+                        className="font-medium text-blue-600 hover:underline"
+                      >
+                        {selectedUnit.tenantInfo.tenant_email || 'N/A'}
+                      </a>
+                    </p>
+                    <p className="flex items-center gap-2 text-gray-700 mb-2">
+                      <Users className="w-5 h-5 text-gray-500" /> Phone:{' '}
+                      <a
+                        href={`tel:${selectedUnit.tenantInfo.tenant_phone}`}
+                        className="font-medium text-blue-600 hover:underline"
+                      >
+                        {selectedUnit.tenantInfo.tenant_phone || 'N/A'}
+                      </a>
+                    </p>
                   </>
                 ) : (
                   <p className="text-gray-600 italic">
@@ -1595,29 +1682,73 @@ const Unit = () => {
                 )}
               </div>
 
-              <div className="md:col-span-2 bg-gray-50 p-6 rounded-xl border border-gray-200 shadow-sm">
-                <h3 className="text-lg font-semibold text-gray-800 mb-3">
-                  Amenities
+              {/* Payment History */}
+              <div
+                className="md:col-span-2 bg-gray-50 p-6 rounded-xl border border-gray-200 shadow-sm"
+                aria-labelledby="payment-history"
+              >
+                <h3
+                  id="payment-history"
+                  className="text-lg font-semibold text-gray-800 mb-3"
+                >
+                  Payment History
                 </h3>
-                <div className="flex flex-wrap gap-3">
-                  {selectedUnit.amenities &&
-                  selectedUnit.amenities.length > 0 ? (
-                    selectedUnit.amenities.map((amenity) => (
-                      <span
-                        key={amenity}
-                        className="flex items-center gap-2 px-3 py-1 rounded-full bg-blue-100 text-blue-800 text-sm font-medium"
-                      >
-                        {getAmenityIcon(amenity)} {amenity}
-                      </span>
-                    ))
-                  ) : (
-                    <p className="text-gray-600 text-sm">
-                      No amenities listed for this unit.
-                    </p>
-                  )}
-                </div>
+                {isPaymentLoading ? (
+                  <div className="text-center py-4">
+                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-blue-500 mx-auto"></div>
+                  </div>
+                ) : selectedUnit.paymentHistory &&
+                  selectedUnit.paymentHistory.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-100">
+                        <tr>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Date
+                          </th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Amount
+                          </th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Type
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {selectedUnit.paymentHistory
+                          .slice(0, 5)
+                          .map((payment) => (
+                            <tr key={payment.payment_id}>
+                              <td className="px-4 py-2 text-sm text-gray-700">
+                                {new Date(
+                                  payment.payment_date
+                                ).toLocaleDateString()}
+                              </td>
+                              <td className="px-4 py-2 text-sm text-gray-700">
+                                {formatCurrency(payment.amount)}
+                              </td>
+                              <td className="px-4 py-2 text-sm text-gray-700">
+                                {payment.payment_type}
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                    {selectedUnit.paymentHistory.length > 5 && (
+                      <p className="text-sm text-gray-500 mt-2">
+                        Showing last 5 payments. Total payments:{' '}
+                        {selectedUnit.paymentHistory.length}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-gray-600 text-sm">
+                    No payment history available.
+                  </p>
+                )}
               </div>
 
+              {/* Notes */}
               <div className="md:col-span-2 bg-gray-50 p-6 rounded-xl border border-gray-200 shadow-sm">
                 <h3 className="text-lg font-semibold text-gray-800 mb-3">
                   Notes

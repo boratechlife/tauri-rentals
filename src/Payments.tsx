@@ -7,9 +7,9 @@ import { DeleteConfirmationModal } from './DeleteConfirmationModal';
 
 export interface Payment {
   payment_id: string;
-  tenant_id: number;
-  unit_id: number | null; // Improved type from any
-  property_id: number;
+  tenant_id: string;
+  unit_id: string | null; // Improved type from any
+  property_id: string;
   payment_month: string;
   amount_paid: number;
   payment_date: string;

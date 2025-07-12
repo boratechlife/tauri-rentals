@@ -26,9 +26,9 @@ interface Property {
 
 // Initial form state for adding/editing payments
 export const initialPaymentFormState: Omit<Payment, 'payment_id'> = {
-  tenant_id: 0,
-  unit_id: 0,
-  property_id: 0,
+  tenant_id: '0',
+  unit_id: '0',
+  property_id: '0',
   amount_paid: 0,
   payment_date: new Date().toISOString().split('T')[0], // Default to today
   due_date: '',
@@ -130,7 +130,7 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
   useEffect(() => {
     if (formData.property_id) {
       const filtered = allUnits.filter(
-        (unit) => unit.property_id === formData.property_id
+        (unit) => unit.property_id === Number(formData.property_id)
       );
       setUnits(filtered);
     } else {
@@ -158,25 +158,29 @@ export const PaymentFormModal: React.FC<PaymentFormModalProps> = ({
           // Automatically set property_id and unit_id based on the selected tenant's associated data
           newData = {
             ...newData,
-            tenant_id: selectedTenantId,
-            property_id: selectedTenant.property_id || 0, // Use 0 if not found/null
-            unit_id: selectedTenant.unit_id || 0, // Use 0 if not found/null
+            tenant_id: String(selectedTenantId),
+            property_id: selectedTenant.property_id
+              ? String(selectedTenant.property_id)
+              : '0', // Use '0' if not found/null
+            unit_id: selectedTenant.unit_id
+              ? String(selectedTenant.unit_id)
+              : '0', // Use '0' if not found/null
           };
         } else {
           // If no tenant selected or no associated data, reset
           newData = {
             ...newData,
-            tenant_id: selectedTenantId,
-            property_id: 0,
-            unit_id: 0,
+            tenant_id: String(selectedTenantId),
+            property_id: '0',
+            unit_id: '0',
           };
         }
       } else if (name === 'property_id') {
         // If property is changed manually, reset the unit_id
         newData = {
           ...newData,
-          property_id: parseInt(value) || 0,
-          unit_id: 0, // Reset unit_id when property changes manually
+          property_id: value,
+          unit_id: '0', // Reset unit_id when property changes manually
         };
       } else {
         // Handle other form fields
