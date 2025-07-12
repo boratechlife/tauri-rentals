@@ -53,8 +53,21 @@ export const TenantFormModal: React.FC<TenantFormModalProps> = ({
     null
   );
 
+  const checkPropertyIdandUnit = async () => {
+    if (initialData && initialData.unit_id) {
+      const db = await Database.load('sqlite:productionv7.db');
+      const unitData = await db.select<{ property_id: number }[]>(
+        `SELECT property_id FROM units WHERE unit_id = $1`,
+        [initialData.unit_id]
+      );
+      if (unitData.length > 0) {
+        setSelectedPropertyId(unitData[0].property_id);
+      }
+    }
+  };
   useEffect(() => {
     setFormData(initialData || initialTenantFormState);
+    checkPropertyIdandUnit();
   }, [initialData]);
 
   // Fetch units for the dropdown
@@ -70,7 +83,8 @@ export const TenantFormModal: React.FC<TenantFormModalProps> = ({
             monthly_rent: number;
           }[]
         >(
-          `SELECT unit_id, unit_number, property_id, monthly_rent, unit_status FROM units where unit_status  not in ('Inactive', 'Moving Out','Occupied')`
+          `SELECT unit_id, unit_number, property_id, monthly_rent, unit_status FROM units WHERE unit_status NOT IN ('Inactive', 'Moving Out') OR unit_id = $1`,
+          [initialData?.unit_id || null]
         );
         setUnits(dbUnits);
         setUnits(
@@ -108,8 +122,26 @@ export const TenantFormModal: React.FC<TenantFormModalProps> = ({
     }));
   };
 
+  useEffect(() => {
+    setFormData(initialData || initialTenantFormState);
+    if (initialData?.unit_id) {
+      const unit = units.find((u) => u.unit_id === initialData.unit_id);
+      setSelectedPropertyId(unit ? unit.property_id : null);
+    } else {
+      setSelectedPropertyId(null);
+    }
+  }, [initialData, units]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedPropertyId) {
+      alert('Please select a property');
+      return;
+    }
+    if (!formData.unit_id) {
+      alert('Please select a unit');
+      return;
+    }
     onSave(formData);
   };
 
@@ -237,14 +269,8 @@ export const TenantFormModal: React.FC<TenantFormModalProps> = ({
             </select>
           </div>
           <div>
-            <label
-              htmlFor="rent_amount"
-              className="block text-sm font-medium text-gray-700"
-            >
-              Rent Amount (Kshs.)
-            </label>
             <input
-              type="number"
+              type="hidden"
               id="rent_amount"
               name="rent_amount"
               value={
@@ -292,9 +318,11 @@ export const TenantFormModal: React.FC<TenantFormModalProps> = ({
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               required
             >
-              <option value="active">Active</option>
-              <option value="Moving Out">Moving Out</option>
-              <option value="Inactive">Inactive</option>
+              <option value="active" selected>
+                Active
+              </option>
+              {/* <option value="Moving Out">Moving Out</option>
+              <option value="Inactive">Inactive</option> */}
             </select>
           </div>
           <div className="flex justify-end space-x-3 mt-6">

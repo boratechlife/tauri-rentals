@@ -64,7 +64,7 @@ const PropertyManagerDashboard = () => {
       const results = await db.select<StatsData[]>(`
         SELECT 
           (SELECT COUNT(*) FROM properties) as totalProperties,
-          (SELECT COUNT(*) FROM tenants WHERE status = 'Active') as totalTenants,
+          (SELECT COUNT(*) FROM tenants ) as totalTenants,
           (SELECT COUNT(*) FROM payments WHERE payment_status = 'Paid') as totalPayments,
           (SELECT AVG(monthly_rent) FROM units) as averageRent,
           (SELECT SUM(amount) FROM expenses) as totalExpenses,

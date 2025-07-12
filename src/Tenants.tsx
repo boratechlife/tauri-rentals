@@ -3,10 +3,28 @@ import { Search, Plus, Edit, Trash2 } from 'lucide-react';
 import Database from '@tauri-apps/plugin-sql';
 import { DeleteConfirmationModal } from './DeleteConfirmationModal';
 import { TenantFormModal } from './TenantFormModal';
+import { differenceInMonths, endOfMonth, startOfMonth } from 'date-fns';
 
 // ---
 // Interfaces
 // ---
+
+interface ArrearsReport {
+  tenant_id: number;
+  tenant_name: string;
+  unit_number: string;
+  expected_amount: number;
+  total_paid: number;
+  balance: number;
+  status: 'Arrears' | 'Overpaid' | 'Current';
+  months_counted: number;
+}
+
+interface TenantStats {
+  totalTenants: number;
+  totalRent: number;
+  averageRent: number;
+}
 export interface Tenant {
   tenant_id: number;
   full_name: string;
@@ -19,7 +37,32 @@ export interface Tenant {
 
   unit_number?: string; // Derived from units table
   property_name?: string; // Derived from properties table
+  arrears?: ArrearsReport;
 }
+
+const StatsDisplay: React.FC<{ stats: TenantStats }> = ({ stats }) => {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 text-center">
+        <h3 className="text-sm font-medium text-gray-600">Total Tenants</h3>
+        <p className="text-2xl font-bold text-gray-900">{stats.totalTenants}</p>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 text-center">
+        <h3 className="text-sm font-medium text-gray-600">Total Rent</h3>
+        <p className="text-2xl font-bold text-gray-900">
+          KES {stats.totalRent.toLocaleString()}
+        </p>
+      </div>
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 text-center">
+        <h3 className="text-sm font-medium text-gray-600">Average Rent</h3>
+        <p className="text-2xl font-bold text-gray-900">
+          KES {stats.averageRent.toFixed(2)}
+        </p>
+      </div>
+    </div>
+  );
+};
 
 // ---
 // TenantsList Component
@@ -30,26 +73,105 @@ const TenantsList: React.FC = () => {
   const [searchText, setSearchText] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
 
+  const [stats, setStats] = useState<TenantStats>({
+    totalTenants: 0,
+    totalRent: 0,
+    averageRent: 0,
+  });
   // CRUD Modal States
   const [showAddEditTenantModal, setShowAddEditTenantModal] = useState(false);
   const [showDeleteTenantConfirm, setShowDeleteTenantConfirm] = useState(false);
   const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
+  const [arrearsData, setArrearsData] = useState<ArrearsReport[]>([]);
+
+  async function calculateArrears(
+    tenants: Tenant[] = []
+  ): Promise<ArrearsReport[]> {
+    try {
+      const db = await Database.load('sqlite:productionv7.db');
+      const arrearsReport: ArrearsReport[] = [];
+      const currentDate = new Date();
+
+      if (!Array.isArray(tenants)) {
+        console.error('calculateArrears: tenants is not an array', tenants);
+        return [];
+      }
+
+      for (const tenant of tenants) {
+        const leaseStartDate = new Date(tenant.lease_start_date);
+        if (isNaN(leaseStartDate.getTime())) continue;
+
+        const monthsCounted =
+          differenceInMonths(
+            endOfMonth(currentDate),
+            startOfMonth(leaseStartDate)
+          ) + 1;
+
+        const rentAmount = await db.select(
+          `SELECT monthly_rent FROM units WHERE unit_id = $1`,
+          [tenant.unit_id]
+        );
+        const monthlyRent =
+          rentAmount[0]?.monthly_rent || tenant.rent_amount || 0;
+        const totalExpected = monthsCounted * monthlyRent;
+
+        const paymentsForTenant = await db.select(
+          `SELECT SUM(amount_paid) as total_paid
+         FROM payments
+         WHERE tenant_id = $1 AND payment_category = 'Rent'
+         AND payment_date >= $2 AND payment_date <= $3`,
+          [
+            tenant.tenant_id,
+            tenant.lease_start_date,
+            currentDate.toISOString().slice(0, 10),
+          ]
+        );
+
+        const totalPaid = paymentsForTenant[0]?.total_paid || 0;
+        const balance = totalExpected - totalPaid;
+        const status =
+          balance > 0 ? 'Arrears' : balance < 0 ? 'Overpaid' : 'Current';
+
+        arrearsReport.push({
+          tenant_id: tenant.tenant_id,
+          tenant_name: tenant.full_name,
+          unit_number: tenant.unit_number || 'N/A',
+          expected_amount: totalExpected,
+          total_paid: totalPaid,
+          balance,
+          status,
+          months_counted: monthsCounted,
+        });
+      }
+      return arrearsReport;
+    } catch (err) {
+      console.error('Error calculating arrears:', err);
+      setError('Failed to calculate arrears');
+      return [];
+    }
+  }
 
   async function fetchTenants() {
     try {
       setLoading(true);
       const db = await Database.load('sqlite:productionv7.db');
       const dbTenants: any = await db.select(`
-        SELECT 
-          t.tenant_id, t.full_name, t.email, t.phone_number, t.status,
-          t.unit_id, t.rent_amount, t.lease_start_date, 
-          u.unit_number, p.name AS property_name
-        FROM tenants t
-        LEFT JOIN units u ON t.unit_id = u.unit_id
-        LEFT JOIN properties p ON u.property_id = p.property_id
-      `);
+      SELECT 
+        t.tenant_id, t.full_name, t.email, t.phone_number, t.status,
+        t.unit_id, t.rent_amount, t.lease_start_date, 
+        u.unit_number, p.name AS property_name
+      FROM tenants t
+      LEFT JOIN units u ON t.unit_id = u.unit_id
+      LEFT JOIN properties p ON u.property_id = p.property_id
+    `);
+      const arrears = await calculateArrears(dbTenants);
+      const tenantsWithArrears = dbTenants.map((tenant: Tenant) => ({
+        ...tenant,
+        arrears: arrears.find((a) => a.tenant_id === tenant.tenant_id),
+      }));
       setError('');
-      setTenants(dbTenants);
+      setTenants(tenantsWithArrears);
+      setStats(computeStats(tenantsWithArrears));
     } catch (err) {
       console.error('Error fetching tenants:', err);
       setError('Failed to get tenants - check console');
@@ -57,6 +179,18 @@ const TenantsList: React.FC = () => {
       setLoading(false);
     }
   }
+
+  const computeStats = (tenants: Tenant[]): TenantStats => {
+    const totalTenants = tenants.length;
+    const totalRent = tenants.reduce((sum, t) => sum + (t.rent_amount || 0), 0);
+    const averageRent = totalTenants > 0 ? totalRent / totalTenants : 0;
+
+    return {
+      totalTenants,
+      totalRent,
+      averageRent,
+    };
+  };
 
   const handleDeleteTenant = async () => {
     if (!selectedTenant) return;
@@ -118,7 +252,10 @@ const TenantsList: React.FC = () => {
       );
 
       // Refresh data and close modal
-      fetchTenants();
+      fetchTenants().then(() => {
+        calculateArrears().then((data) => setArrearsData(data));
+      });
+      setStats(computeStats(tenants));
       setShowDeleteTenantConfirm(false);
       setSelectedTenant(null);
     } catch (err) {
@@ -240,7 +377,10 @@ const TenantsList: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchTenants();
+    // Refresh data and close modal
+    fetchTenants().then(() => {
+      calculateArrears().then((data) => setArrearsData(data));
+    });
   }, []);
 
   const filteredTenants = tenants.filter(
@@ -329,6 +469,8 @@ const TenantsList: React.FC = () => {
         <h1 className="text-3xl font-bold text-gray-900">Tenant Management</h1>
       </div>
 
+      <StatsDisplay stats={stats} />
+
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <div className="flex flex-wrap gap-4 items-center justify-between">
           <div className="relative flex-1 min-w-64">
@@ -377,7 +519,7 @@ const TenantsList: React.FC = () => {
                       {tenant.full_name}
                     </h3>
                     <p className="text-sm text-gray-600">
-                      {tenant.unit_number || 'N/A'} •{' '}
+                      Unit no. {tenant.unit_number || 'N/A'} • Property{' '}
                       {tenant.property_name || 'N/A'}
                     </p>
                   </div>
@@ -403,6 +545,37 @@ const TenantsList: React.FC = () => {
                     <span className="font-medium text-gray-800">Phone:</span>{' '}
                     {tenant.phone_number}
                   </p>
+                  <p>
+                    <span className="font-medium text-gray-800">
+                      lease start date:
+                    </span>{' '}
+                    {tenant.lease_start_date}
+                  </p>
+
+                  <div className="mt-2">
+                    <p>
+                      <span className="font-medium text-gray-800">
+                        Arrears:
+                      </span>{' '}
+                      {tenant.arrears ? (
+                        <span
+                          className={`${
+                            tenant.arrears.status === 'Arrears'
+                              ? 'text-red-600'
+                              : tenant.arrears.status === 'Overpaid'
+                              ? 'text-green-600'
+                              : 'text-blue-600'
+                          }`}
+                        >
+                          KES{' '}
+                          {Math.abs(tenant.arrears.balance).toLocaleString()} (
+                          {tenant.arrears.status})
+                        </span>
+                      ) : (
+                        'N/A'
+                      )}
+                    </p>
+                  </div>
                 </div>
               </div>
 
